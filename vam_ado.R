@@ -200,12 +200,12 @@ vam <- function(
   # https://stackoverflow.com/questions/16325641/how-to-extract-the-first-n-rows-per-group#comment23381259_16325932
   # i have no idea how this works but is a million times faster than anything else
   collapsed <- dt[dt[, .I[1], by = .(.group, get(teacher), get(year), get(class))]$V1]   # first obs by group
-  collapsed$rand <- runif(nrow(collapsed))      # create a random number of each row
-  collapsed <- collapsed[order(collapsed$rand),]  # sort by the random number
-  
-  collapsed[,classnum := seq_along(rand), by  = .(.group, get(teacher), get(year))]   # get class number by random number
   
   # same-year covariances
+  collapsed$rand <- runif(nrow(collapsed))      # create a random number of each row
+  collapsed <- collapsed[order(collapsed$rand),]  # sort by the random number
+  collapsed[,classnum := seq_along(rand), by  = .(.group, get(teacher), get(year))]   # get class number by random number
+  
   class_pars <- map_df(1 : n_groups, ~{
     filtered <- collapsed[.group == .x]
     
@@ -253,12 +253,15 @@ vam <- function(
   # checks on drift limit
   data_span <- max(tch_yr$get.1) - min(tch_yr$get.1)
   if (data_span < driftlimit) {
-    message(glue::glue("You specified a drift limit of {driftlimit} but there are only {data_span} lags of teacher data. Back to the drawing room!"))
+    stop(glue::glue("You specified a drift limit of {driftlimit} but there are only {data_span} lags of teacher data. Back to the drawing room!"))
   }
   if (is.null(driftlimit)) {
     message(glue::glue("No drift limit specified. Using all data which has limit of {data_span}."))
-  } else {
-    
+    lags_limit <- data_span
+  } 
+  if (data_span >= driftlimit) {
+    message(glue::glue("You specified a drift limit of {driftlimit}"))
+    lags_limit <- driftlimit
   }
   
   #########################################
@@ -278,7 +281,7 @@ vam <- function(
       group_by(.group, get)
     
     # cov for each possible lag
-    map_df(1:driftlimit, function(d) {
+    map_df(1:lags_limit, function(d) {
       prepped <- group %>%
         mutate(
           lead_class_mean = lag(class_mean, d),
@@ -301,14 +304,28 @@ vam <- function(
       )
     })
     
-
   })
   
   #########################################
   # calculate tv
   
-  # TODO
+  if (!is.null(driftlimit)) {
+    message(glue::glue("Drift limit specified: {driftlimit}"))
+  }
   
+  # matrix m in CFR code
+  mat <- pars %>%
+    select(.group, cov_sameyear) %>%
+    mutate(lag = 0) %>%
+    bind_rows(lags %>% select(.group, lag, cov_sameyear)) %>%
+    arrange(.group, lag)
+  
+  if (data_span > driftlimit) {
+    # fill in past driftlimit
+  }
+  
+  # TODO
+
   #########################################
   # final messages at the end
   pars <- groups %>% left_join(pars, by = ".group") %>% ungroup()
@@ -366,5 +383,20 @@ ret <- vam(lvl,
            y = "test")
 
 
-   
+  ret[[2]]
+  
+  ret[[3]]
+  
+  ret[[4]] %>%
+     as_tibble() %>%
+     filter(.group == 1, get == "50010086")
+  
+  # st_view(Z=.,.,(teacher_var,time_var,weights_var,scores_var))
+  
+
+  # st_store(obs,va_var_ind,
+    # driftcalc(M,time-year_index,Z_obs[.,2]:-year_index,Z_obs[.,3],Z_obs[.,4])
+  #)
+
+  
    
