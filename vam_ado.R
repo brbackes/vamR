@@ -311,8 +311,8 @@ vam <- function(
   
   #########################################
   # final messages at the end
-  pars <- groups %>% left_join(pars, by = ".group")
-  lags <- groups %>% left_join(lags, by = ".group", multiple = "all")
+  pars <- groups %>% left_join(pars, by = ".group") %>% ungroup()
+  lags <- groups %>% left_join(lags, by = ".group", multiple = "all") %>% ungroup()
   
   message("Standard deviations: total, classes, students, teachers same year")
   walk(1:n_groups, ~{
@@ -333,7 +333,8 @@ vam <- function(
   return(list(
     preds, # original data with scores added on
     pars %>% select(-.group),     # variance parameters and stuff
-    lags %>% select(-.group)      # lag stuff
+    lags %>% select(-.group),      # lag stuff
+    tch_yr     # tch-yr dataset
     ))
 
 }
