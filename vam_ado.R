@@ -3,6 +3,47 @@ library(dtplyr)
 library(tidyverse)
 library(haven)
 library(fixest)
+library(future)
+library(furrr)
+
+
+vectorToStripeDiag <- function(vector_m) {
+  
+  dim = length(vector_m)
+  M = matrix(0, dim, dim)
+  for (i in 1:dim) {
+    for (j in 1:dim) {
+      M[j,i]=vector_m[abs(j-i)+1]
+    }
+  }
+  
+  return(M)
+  
+} 
+
+
+compute_tv <- function(M, year_i, df) {
+  
+  scores <- df$class_mean %>% as.matrix()
+  
+  years <- df$get.1 - year_index
+  A = matrix(0, nrow(df), ncol(M))
+  for (i in 1:nrow(df)) {
+    A[i, years[i]] <- 1
+  }
+  
+  vcv = A %*% M %*% t(A) + diag(1 / df$weight)
+  
+  phi = M[year_i, ] %*% t(A)
+  
+  inverse <- chol2inv(chol(vcv))
+  # inverse <- solve(vcv)
+  
+  phi %*% inverse %*% scores
+  
+}
+
+  
 
 # created in the stata file in same dir
 raw_df <- haven::read_dta("vam_data.dta")
@@ -309,11 +350,11 @@ vam <- function(
   #########################################
   # calculate tv
   
-  if (!is.null(driftlimit)) {
-    message(glue::glue("Drift limit specified: {driftlimit}"))
-  }
-  
-  # matrix m in CFR code
+  # testing
+  # pars <- ret[[2]]
+  # lags <- ret[[3]]
+  # tch_yr <- ret[[4]]
+  # vector m in CFR code
   mat <- pars %>%
     select(.group, cov_sameyear) %>%
     mutate(lag = 0) %>%
@@ -321,10 +362,62 @@ vam <- function(
     arrange(.group, lag)
   
   if (data_span > driftlimit) {
-    # fill in past driftlimit
+    mat <- map_df(1 : n_groups, ~{
+      tibble::tibble(
+        .group = .x,
+        cov_sameyear = mat %>% filter(.group == .x) %>% slice_tail(n = 1) %>% pull(cov_sameyear),
+        lag = (driftlimit + 1) : (data_span)
+      )
+    }) %>%
+      bind_rows(mat) %>%
+      arrange(.group, lag)
   }
   
-  # TODO
+  message("Covariances used for VA computations:")
+  walk(1:n_groups, ~{
+    print(mat %>% filter(.group == .x, lag > 0))
+  })
+  
+  # matrix M in CFR code
+  matrix_M <- map_df(1:n_groups, ~{
+    mat %>%
+      filter(.group == .x) %>%
+      mutate(M = vectorToStripeDiag(cov_sameyear))
+  })
+  
+  # return(tch_yr)
+  
+  # calculate tv
+  # extremely slow
+  message("Calculating tv")
+  future::plan(multisession)
+  tch_yr <- map_df(1 : n_groups, function(g){
+    group_df <- tch_yr %>% filter(.group == g)
+    group_M <- matrix_M %>% filter(.group == g) %>% pull(M)
+    group_df$tv = NA_real_
+    
+    teachers <- unique(group_df$get)
+    group_va_data <- furrr::future_map_dfr(teachers, function(tch){
+      # print(tch)
+      teacher_data <- group_df %>% filter(get == tch)
+      # teacher_data <- group_df %>% filter(get == "50010086")
+      year_index <- min(teacher_data$get.1 - 1)
+      for (i in 1:nrow(teacher_data)) {
+        # print(i)
+        this_year <- teacher_data$get.1[i]
+        this_year_data <- teacher_data %>% filter(get.1 != this_year, !is.na(class_mean))
+        if (nrow(this_year_data) > 0) {
+          teacher_data$tv[i] <- compute_tv(group_M, (this_year - year_index), this_year_data)
+        }
+      }
+      
+      return(teacher_data)
+      
+    }) 
+    
+    return(group_va_data)
+    
+  })
 
   #########################################
   # final messages at the end
@@ -347,10 +440,11 @@ vam <- function(
 
   tictoc::toc()
   
+  # once finished, remove .group from pars and lags
   return(list(
     preds, # original data with scores added on
-    pars %>% select(-.group),     # variance parameters and stuff
-    lags %>% select(-.group),      # lag stuff
+    pars ,     # variance parameters and stuff
+    lags ,      # lag stuff
     tch_yr     # tch-yr dataset
     ))
 
@@ -368,7 +462,7 @@ ret <- vam(by = "lvl",
            class = "section_id",
            year = "syear",
            absorb = "sch_code", 
-           driftlimit = 3,
+           driftlimit = 7,
            y = "test")
 
 # teacher fe
@@ -381,22 +475,3 @@ ret <- vam(lvl,
            tfx_resid = "mepid", 
            driftlimit = 3,
            y = "test")
-
-
-  ret[[2]]
-  
-  ret[[3]]
-  
-  ret[[4]] %>%
-     as_tibble() %>%
-     filter(.group == 1, get == "50010086")
-  
-  # st_view(Z=.,.,(teacher_var,time_var,weights_var,scores_var))
-  
-
-  # st_store(obs,va_var_ind,
-    # driftcalc(M,time-year_index,Z_obs[.,2]:-year_index,Z_obs[.,3],Z_obs[.,4])
-  #)
-
-  
-   
