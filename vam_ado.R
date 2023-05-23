@@ -5,8 +5,12 @@ library(haven)
 library(fixest)
 library(future)
 library(furrr)
+library(cli)
 
+# created in the stata file in same dir
+raw_df <- haven::read_dta("vam_data.dta")
 
+# a function
 vectorToStripeDiag <- function(vector_m) {
   
   dim = length(vector_m)
@@ -21,32 +25,48 @@ vectorToStripeDiag <- function(vector_m) {
   
 } 
 
-
-compute_tv <- function(M, year_i, df) {
+# compute tv function
+compute_tv_matrix <- function(teacher_data, M) {
   
-  scores <- df$class_mean %>% as.matrix()
+  year_index <- min(teacher_data$get.1) - 1
   
-  years <- df$get.1 - year_index
-  A = matrix(0, nrow(df), ncol(M))
-  for (i in 1:nrow(df)) {
-    A[i, years[i]] <- 1
-  }
+  mm <- tidyr::crossing(
+    teacher_data %>% select(get.1)  %>% distinct(),
+    teacher_data %>% rename(syear = get.1)) %>%
+    filter(!is.na(class_mean), get.1 != syear) %>%
+    mutate(
+      years = syear - year_index
+    ) %>%
+    # necessary to make the factor capture every year
+    bind_rows(
+      tibble(years = 1 : ncol(M))
+    ) %>%
+    mutate(years = as.factor(years)) %>%
+    filter(!is.na(get.1)) %>%
+    mutate(
+      year_i = get.1 - year_index,
+      scores = class_mean %>% as.matrix(),
+      A = model.matrix(~.$years + 0)
+    ) %>%
+    nest(
+      .by = c(get, get.1)
+    )
   
-  vcv = A %*% M %*% t(A) + diag(1 / df$weight)
+  n <- mm %>%
+    mutate(
+      tv = lapply(data, function(df) 
+        (M[df$year_i[1], ] %*% t(df$A)) %*% # phi
+          (solve(df$A %*% M %*% t(df$A) + diag(1 / df$weight, nrow = nrow(df$A), ncol = nrow(df$A))) %*% # inverse
+             df$scores)) # scores
+    ) %>%
+    select(get, get.1, tv) %>%
+    unnest(tv) %>%
+    mutate(tv = as.numeric(tv))
   
-  phi = M[year_i, ] %*% t(A)
-  
-  inverse <- chol2inv(chol(vcv))
-  # inverse <- solve(vcv)
-  
-  phi %*% inverse %*% scores
+  n
   
 }
 
-  
-
-# created in the stata file in same dir
-raw_df <- haven::read_dta("vam_data.dta")
 
 vam <- function(
     y = NULL,
@@ -63,6 +83,7 @@ vam <- function(
 ) {
   
   tictoc::tic("vam")
+  cli_progress_step("Initial function checks.")
   
   #########################################
   # function stuff and checks
@@ -108,7 +129,7 @@ vam <- function(
       slice_head(n = 1) %>% 
       select(.group, !!!rlang::syms(by))
   } else {
-    message("No by variables provided. All calculations will be run on full data.")
+    cli_alert_warning("No by variables provided. All calculations will be run on full data.")
     reg_df <- data %>%
       mutate(.group = 1) %>%
       ungroup()
@@ -126,21 +147,22 @@ vam <- function(
 
   # teacher fe
   if (!is.null(tfx_resid)) {
-    tch <- sym(tfx_resid)
-    message("Residualizing with teacher FE")
+    cli_progress_step("Residualizing with teacher FE.")
     model <- feols(..lhs ~ ..ctrl | .[tfx_resid], data = reg_df, split = ~.group)
 
     resids <- resid(model, type = "response", na.rm = FALSE)
     preds <- map_df(1:n_groups, ~{
       
-      reg_df$score_r <- resids[, .x]
-      reg_df <- reg_df %>% 
+      sample_df <- reg_df
+      sample_df$score_r <- resids[, .x]
+      sample_df <- sample_df %>% 
         filter(.group == .x)
       
       # add in the teacher fe
-      reg_df$tfe <-    predict(as.list(model)[[.x]], reg_df, fixef = TRUE) %>% pull({{tfx_resid}})
-      reg_df %>%
-        mutate(score_r = score_r + tfe)
+      sample_df$tfe <-    predict(as.list(model)[[.x]], sample_df, fixef = TRUE) %>% pull({{tfx_resid}})
+      sample_df %>%
+        mutate(score_r = score_r + tfe) %>%
+        select(-tfe)
       
     })
     
@@ -155,7 +177,7 @@ vam <- function(
   
   # other fe that's not teacher
   if (!is.null(absorb)) {
-    message(glue::glue("Residualizing with a non-teacher FE: {absorb}"))
+    cli_progress_step("Residualizing with a non-teacher FE: {absorb}")
     model <- feols(..lhs ~ ..ctrl | .[absorb], data = reg_df, split = ~.group)
     
     resids <- resid(model, type = "response", na.rm = FALSE)
@@ -178,7 +200,7 @@ vam <- function(
   
   # no fe
   if (is.null(absorb) & is.null(tfx_resid)) {
-    message("Residualizing with no fixed effects")
+    cli_progress_step("Residualizing with no fixed effects.")
     model <- feols(..lhs ~ ..ctrl, data = reg_df, split = ~.group)
     
     resids <- resid(model, type = "response", na.rm = FALSE)
@@ -202,7 +224,7 @@ vam <- function(
   # calculate total and individual variances
   
   # start using data.table. this is way, way faster than dplyr
-  message("Moving data to data.table and computing variances")
+  cli_progress_step("Moving data to data.table and computing variances.")
   dt <- data.table(preds)
   
   dt[, `:=`(c("n_tested", "class_mean", 
@@ -236,7 +258,7 @@ vam <- function(
   # collapse to class
   
   set.seed(1979)
-  message("collapsing to class")
+  cli_progress_step("Collapsing to class.")
   
   # https://stackoverflow.com/questions/16325641/how-to-extract-the-first-n-rows-per-group#comment23381259_16325932
   # i have no idea how this works but is a million times faster than anything else
@@ -251,7 +273,7 @@ vam <- function(
     filtered <- collapsed[.group == .x]
     
     if (max(filtered$classnum) == 1) {
-      message(glue::glue("Group {.x}: All teachers have one class in each year"))
+      cli_alert_warning("Group {.x}: All teachers have one class in each year")
       tibble::tibble(cov_sameyear = 0)
     } else {
       
@@ -281,7 +303,7 @@ vam <- function(
   #########################################
   # collapse to teacher-year
   
-  message("collapsing to teacher-year")
+  cli_progress_step("Collapsing to teacher-year")
   # merge on the variances
   collapsed <- collapsed[data.table(pars), on =.(.group)]
   collapsed[, weight :=  1/(var_class + var_ind/n_tested)]
@@ -297,20 +319,21 @@ vam <- function(
     stop(glue::glue("You specified a drift limit of {driftlimit} but there are only {data_span} lags of teacher data. Back to the drawing room!"))
   }
   if (is.null(driftlimit)) {
-    message(glue::glue("No drift limit specified. Using all data which has limit of {data_span}."))
+    cli_alert_info("No drift limit specified. Using all data which has limit of {data_span}.")
     lags_limit <- data_span
   } 
   if (data_span >= driftlimit) {
-    message(glue::glue("You specified a drift limit of {driftlimit}"))
+    cli_alert_info("You specified a drift limit of {driftlimit}")
     lags_limit <- driftlimit
   }
   
+
   #########################################
   # calculate lags
   
   setorder(tch_yr, cols = ".group", "get", "get.1")             # Sort data.table
   
-  message("Calculating lags")
+  cli_progress_step("Calculating lags")
   lags <- map_df(1:n_groups, ~{
     
     # prepare for calculating lags. this is kind of slow but i couldn't get it to work right in data.table
@@ -373,9 +396,12 @@ vam <- function(
       arrange(.group, lag)
   }
   
-  message("Covariances used for VA computations:")
+  cli_alert_warning("Covariances used for VA computations:")
   walk(1:n_groups, ~{
-    print(mat %>% filter(.group == .x, lag > 0))
+    print(groups %>% right_join(
+      mat %>% filter(.group == .x, lag > 0),
+      by = ".group", multiple = "all"
+      ))
   })
   
   # matrix M in CFR code
@@ -388,43 +414,29 @@ vam <- function(
   # return(tch_yr)
   
   # calculate tv
-  # extremely slow
-  message("Calculating tv")
-  future::plan(multisession)
   tch_yr <- map_df(1 : n_groups, function(g){
+    cli_progress_step("Calculating tv for group {g} of {n_groups}")
     group_df <- tch_yr %>% filter(.group == g)
     group_M <- matrix_M %>% filter(.group == g) %>% pull(M)
-    group_df$tv = NA_real_
+ 
+    compute_tv_matrix(group_df, group_M) %>%
+      mutate(.group = g)
     
-    teachers <- unique(group_df$get)
-    group_va_data <- furrr::future_map_dfr(teachers, function(tch){
-      # print(tch)
-      teacher_data <- group_df %>% filter(get == tch)
-      # teacher_data <- group_df %>% filter(get == "50010086")
-      year_index <- min(teacher_data$get.1 - 1)
-      for (i in 1:nrow(teacher_data)) {
-        # print(i)
-        this_year <- teacher_data$get.1[i]
-        this_year_data <- teacher_data %>% filter(get.1 != this_year, !is.na(class_mean))
-        if (nrow(this_year_data) > 0) {
-          teacher_data$tv[i] <- compute_tv(group_M, (this_year - year_index), this_year_data)
-        }
-      }
-      
-      return(teacher_data)
-      
-    }) 
-    
-    return(group_va_data)
-    
-  })
+  }) %>% 
+  dplyr::rename({{teacher}} := get, {{year}} := get.1)
+  
+  cli_progress_step("Merging tv estimates back to original data and finishing up.")
+  
+  preds <- preds %>%
+    left_join(tch_yr, by = join_by({{teacher}}, {{year}}, .group))
 
   #########################################
   # final messages at the end
   pars <- groups %>% left_join(pars, by = ".group") %>% ungroup()
   lags <- groups %>% left_join(lags, by = ".group", multiple = "all") %>% ungroup()
+  tch_yr <- groups %>% left_join(tch_yr, by = ".group", multiple = "all") %>% ungroup()
   
-  message("Standard deviations: total, classes, students, teachers same year")
+  cli_alert_info("Standard deviations: total, classes, students, teachers same year")
   walk(1:n_groups, ~{
     pars %>%
       filter(.group == .x) %>%
@@ -434,18 +446,21 @@ vam <- function(
     lags %>%
       filter(.group == .x) %>%
       ungroup() %>%
+      select(!!!rlang::syms(by), cov_sameyear, corr, nobs) %>%
       print()
     
   })
+  
+  cli_progress_step("Done.")
 
   tictoc::toc()
   
   # once finished, remove .group from pars and lags
   return(list(
-    preds, # original data with scores added on
-    pars ,     # variance parameters and stuff
-    lags ,      # lag stuff
-    tch_yr     # tch-yr dataset
+    preds %>% select(-.group, -n_tested, -class_mean, -index, -individual_dev_from_class), # original data with scores added on
+    pars %>% select(-.group, -v, -class_v),     # variance parameters and stuff
+    lags %>% select(-.group),      # lag stuff
+    tch_yr %>% select(-.group)     # tch-yr dataset
     ))
 
 }
@@ -453,6 +468,20 @@ vam <- function(
 
 #########################################
 # usage
+
+
+
+# teacher fe
+ret <- vam(by = "lvl", 
+           data = raw_df, 
+           controls = c("lag_mat_nce", "lag_ela_nce", "lag_std_noncog_factor"), 
+           teacher = "mepid",
+           class = "section_id",
+           year = "syear",
+           tfx_resid = "mepid", 
+           driftlimit = 7,
+           y = "test")
+
 
 # school fe
 ret <- vam(by = "lvl", 
@@ -465,13 +494,35 @@ ret <- vam(by = "lvl",
            driftlimit = 7,
            y = "test")
 
-# teacher fe
-ret <- vam(lvl, 
-           data = raw_df, 
-           controls = c("lag_mat_nce", "lag_ela_nce", "lag_std_noncog_factor"), 
-           teacher = "mepid",
-           class = "section_id",
-           year = "syear",
-           tfx_resid = "mepid", 
-           driftlimit = 3,
-           y = "test")
+
+
+
+ret[[4]] %>%
+  filter(get == "50010086")
+
+ret %>%
+  as_tibble() %>%
+  filter(mepid == "50010086") %>%
+  arrange(syear) %>%
+  select(syear, class_mean, n_tested)
+
+
+
+
+# created in the stata file in same dir
+tv <- haven::read_dta("tv.dta") %>%
+  mutate(mepid = as.character(mepid))
+
+tvr <- ret[[4]]
+
+df <- tv %>%
+  rename(
+    tv_stata = tv
+  ) %>%
+  left_join(tvr, by = c("mepid", "syear", "lvl")) %>%
+  filter(!is.na(tv))
+
+df
+
+cor(df %>% filter(lvl == 1) %>% pull(tv), df %>% filter(lvl == 1) %>% pull(tv_stata))
+
