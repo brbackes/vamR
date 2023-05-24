@@ -1,0 +1,28 @@
+Package: vamR
+Title: Teacher Value Added Calculator
+Version: 0.0.0.9000
+Authors@R: 
+    person("Ben", "Backes", , "bbackes@air.org", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-3485-1586"))
+Description: A port of Michael Stepner's Stata program vam.ado into R with a focus on speed improvements.
+License: MIT + file LICENSE
+Depends: 
+    R (>= 3.6.0)
+Imports: 
+    cli (>= 3.0.0),
+    data.table (>= 1.14.0),
+    dplyr (>= 1.0.0),
+    fixest,
+    glue,
+    rlang (>= 0.4.7),
+    purrr (>= 0.3.0),
+    tibble (>= 3.0),
+    tictoc,
+    tidyr (>= 1.0.0),
+    tidyselect (>= 1.1.0)
+Suggests: 
+    haven
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+
