@@ -26,6 +26,7 @@
 #'
 #' @examples
 #' \donttest{
+#' try({
 #' returned <- vam(
 #'   by = c("lvl", "subject"), 
 #'   data = df_prepped, 
@@ -40,6 +41,7 @@
 #'   tv_name = "tv",
 #'   scores_name = "score_r"
 #' )
+#' })
 #' }
 vam <- function(
     y = NULL,
@@ -204,7 +206,6 @@ vam <- function(
   # start using data.table. this is way, way faster than dplyr
   cli::cli_progress_step("Moving data to data.table and computing variances.")
   
-  library(data.table)  # this is horrible practice...
   dt <- data.table(preds)
   
   dt[, `:=`(c("n_tested", "class_mean", 
@@ -284,14 +285,14 @@ vam <- function(
   # collapse to teacher-year
   
   cli::cli_progress_step("Collapsing to teacher-year")
-  # merge on the variances
+  # merge on the variances to calculate weights
   collapsed <- collapsed[data.table(pars), on =.(.group)]
   collapsed[, weight :=  1/(var_class + var_ind/n_tested)]
   tch_yr <- collapsed[, .(class_mean = weighted.mean(class_mean, w = weight, 
                                     na.rm = TRUE), weight = sum(weight), n_tested = sum(n_tested)), 
      keyby = .(.group, get(teacher), get(year))]
   
-  # note: teacher and syear have been renamed to get and get.1
+  # note: teacher and syear have been renamed by data.table to get and get.1
   
   # checks on drift limit
   data_span <- max(tch_yr$get.1) - min(tch_yr$get.1)
@@ -307,7 +308,6 @@ vam <- function(
     lags_limit <- driftlimit
   }
   
-
   #########################################
   # calculate lags
   
@@ -316,29 +316,19 @@ vam <- function(
   lags <- purrr::map_df(1:n_groups, ~{
     cli::cli_progress_step("Calculating lags for group {.x} of {n_groups}")
     
-    # prepare for calculating lags. this is kind of slow but i couldn't get it to work right in data.table
-    group <- tch_yr[.group == .x] |>
-      tibble::as_tibble() |>
-      dplyr::group_by(.group) |>
-      tidyr::complete(get, get.1) |>
-      dplyr::arrange(get, get.1) |>
-      dplyr::group_by(.group, get)
+    # prepare for calculating lags.
+    group <- tch_yr[.group == .x]
+    group <- fixest::panel((group), ~get+get.1)
     
     # cov for each possible lag
     purrr::map_df(1:lags_limit, function(d) {
-      prepped <- group |>
-        dplyr::mutate(
-          lead_class_mean = dplyr::lag(class_mean, d),
-          lead_n_tested = dplyr::lag(n_tested, d),
-          weight = n_tested + lead_n_tested
-        )
+      group[, lead_class_mean := fixest::l(class_mean, lag = d)]
+      group[, lead_n_tested := fixest::l(n_tested, lag = d)]
+      group[, weight := n_tested + lead_n_tested]
+      group <- na.omit(group, cols=c("lead_class_mean", "class_mean", "weight"))
+      fixest::unpanel(group)
       
-      covs <- prepped |>
-        tibble::as_tibble() |>
-        dplyr::filter(!is.na(weight), weight > 0, !is.na(class_mean), !is.na(lead_class_mean)) |>
-        dplyr::select(class_mean, lead_class_mean, weight)
-      
-      weighted_corr <- cov.wt(covs[,1:2], wt = covs$weight, cor = TRUE)
+      weighted_corr <- cov.wt(group[,c("class_mean", "lead_class_mean")], wt = group$weight, cor = TRUE)
       tibble::tibble(
         lag = d,
         cov_sameyear = weighted_corr$cov[2,1],

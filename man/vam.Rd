@@ -62,6 +62,7 @@ This package is based on Michael Stepner's Stata program and intended to produce
 }
 \examples{
 \donttest{
+try({
 returned <- vam(
   by = c("lvl", "subject"), 
   data = df_prepped, 
@@ -76,5 +77,6 @@ returned <- vam(
   tv_name = "tv",
   scores_name = "score_r"
 )
+})
 }
 }

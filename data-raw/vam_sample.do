@@ -21,10 +21,12 @@ drop org_code teach_weight parcc online nce_ela nce_mat lag2_std_noncog_factor v
 
 keep if subject <= 52
  
-export delimited "vam_data.csv", replace
-save "vam_data", replace
+* export delimited "vam_data.csv", replace
 
 * test vam
+
+cap log close
+log using vam_stata, name("vam_stat") text replace
 
 	local controls ///
 		i.grade##(c.lag_mat_nce##c.lag_mat_nce##c.lag_mat_nce ///
@@ -36,7 +38,7 @@ save "vam_data", replace
 		crx_asian crx_black crx_hpi crx_hisp crx_amind crx_mult ///
 		crx_lag_mat_nce crx_lag_ela_nce crx_lag_std_noncog_factor)
 		
-	use vam_data, clear
+	* use vam_data, clear
 	destring sch_code mepid, replace
 	
 	timer clear 1
@@ -62,7 +64,7 @@ save "vam_data", replace
 
 
 
-
+cap log close
 
 
 
