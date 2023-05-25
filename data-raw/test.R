@@ -19,7 +19,6 @@ df_prepped <- raw_df |>
   ) |>
   dplyr::ungroup()
 
-
 # prepare covariates
 
 controls <- df_prepped |>
@@ -46,8 +45,6 @@ controls = paste(paste("i(grade, ", controls), ")") |>
 controls
 
 # controls <- "lag_mat_nce"
-df_prepped$subject
-df_prepped$lvl
 
 # library(data.table)
 
@@ -82,14 +79,15 @@ df <- tv |>
 
 df
 
-cor(df |> dplyr::pull(tv_R), df |> dplyr::pull(tv_stata))
+library(magrittr)
 
-# 
-# 
-# cor(df %>% filter(lvl == 0, subject == 51) %>% pull(tv_R), df %>% filter(lvl == 0, subject == 51) %>% pull(tv_stata))
-# cor(df %>% filter(lvl == 0, subject == 52) %>% pull(tv_R), df %>% filter(lvl == 0, subject == 52) %>% pull(tv_stata))
-# cor(df %>% filter(lvl == 1, subject == 51) %>% pull(tv_R), df %>% filter(lvl == 1, subject == 51) %>% pull(tv_stata))
-# cor(df %>% filter(lvl == 1, subject == 52) %>% pull(tv_R), df %>% filter(lvl == 1, subject == 52) %>% pull(tv_stata))
+df |>
+  dplyr::group_by(subject, lvl) |>
+  dplyr::summarize(va_cor=cor(tv_R, tv_stata), tch_yr_obs = dplyr::n(), .groups = "keep") |>
+  dplyr::arrange(lvl, subject) |>
+  as.data.frame()
+
+
 
 
 

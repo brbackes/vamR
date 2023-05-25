@@ -311,6 +311,8 @@ vam <- function(
   #########################################
   # calculate lags
   
+  cli::cli_progress_step("Preparing to calculate lags")
+  
   setorder(tch_yr, cols = ".group", "get", "get.1")             # Sort data.table
   
   lags <- purrr::map_df(1:n_groups, ~{
@@ -342,6 +344,8 @@ vam <- function(
   
   #########################################
   # calculate tv
+  
+  cli::cli_progress_step("Preparing to calculate value added")
   
   # vector m in CFR code
   mat <- pars |>
@@ -402,6 +406,8 @@ vam <- function(
     return(preds)
   }
 
+  cli::cli_progress_step("Final steps")
+  
   #########################################
   # final messages at the end
   pars <- groups |> dplyr::left_join(pars, by = ".group") |> dplyr::ungroup()
