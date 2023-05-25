@@ -1,10 +1,6 @@
-library(data.table)
-library(tidyverse)
-
-
 
 # created in the stata file in same dir
-raw_df <- data.table::fread("data-raw/vam_data.csv") |>
+raw_df <- data.table::fread("../vamR_test_data/vam_data.csv") |>
   tibble::as_tibble()
 
 df_prepped <- raw_df |>
@@ -65,7 +61,7 @@ ret <- vam(by = c("lvl", "subject"),
 
 
 # created in the stata file in same dir
-tv <- haven::read_dta("data-raw/tv.dta")
+tv <- haven::read_dta("../vamR_test_data/tv.dta")
 
 tvr <- ret[[4]] |>
   dplyr::mutate(subject = ifelse(subject == "ELA", 51, 52))

@@ -21,7 +21,7 @@ drop org_code teach_weight parcc online nce_ela nce_mat lag2_std_noncog_factor v
 
 keep if subject <= 52
  
-* export delimited "vam_data.csv", replace
+* export delimited "D:\Project\working_bb\vamR_test_data\vam_data.csv", replace
 
 * test vam
 
@@ -57,7 +57,7 @@ log using vam_stata, name("vam_stat") text replace
 	keep mepid syear lvl subject tv
 	duplicates drop
 	
-	save "tv", replace
+	save "D:\Project\working_bb\vamR_test_data\tv", replace
 
 	
 	so lvl mepid syear
