@@ -121,3 +121,12 @@ omitted groups and interaction terms. You can check the omitted group used by `a
 
 * If you have a large dataframe with lots of missing outcome variables or covariates, you can speed things up by dropping them before feeding the dataframe to `vamR`. This is because the program carries around the entire dataframe (for now. Hopefully this will be fixed in the future).
 
+### Why is it faster?
+
+For anyone curious, a look under the hood at why things are faster in `fixest` than `vam.ado`. Annecdotally, I've found `vamR` to be 4-5 times faster than `vam.ado`, with larger speed gains coming when more `by()` groups are included and the residualization regression is more complicated, especially with interaction terms. Before getting into it, note that `vam.ado` was extremely well-written given the constraints at the time (a Stata package written in 2013); this is not a criticism! This package would not exist if `vam.ado` weren't so (a) useful and (b) clearly written.
+
+* `fixest` is much, much faster than `areg`
+* With the exception of calculating the actual `tv` estimates, everything is done all at once instead of separately by each `by()` group
+* Most of the calculations use `data.table` as a backend, which is extremely fast for collapsing and manipulating data
+* The biggest bottleneck right now is the calculation of the `tv` estimates, which is somewhat slow and relies on a bunch of matrix manipulation. Suggestions on how to speed this up welcome!
+
