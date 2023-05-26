@@ -108,11 +108,11 @@ Below is how to to verify the output from `fixest` (this is what `vamR` uses und
 needs to be included if you're going to include something in the `by()` portion of `vam`.
 
 ``` r
-model <- fixest::feols(outcome ~ .[reg_controls] | mepid, data = df_prepped, split = ~.group)
+model <- fixest::feols(outcome ~ .[reg_controls] | teacher_id, data = df_prepped, split = ~.group_id)
 ```
 
 The output (i.e., coefficients and number of observations) in each group should be similar to Stata's `areg` absorbing the teacher ID with the same controls and interaction terms. 
-**If this is not the case then the output of `vam.ado` and `vamR` will differ.
+**If this is not the case then the output of `vam.ado` and `vamR` will differ.**
 
 To make sure output is identical, I've found it helpful to manually specify the omitted group as in above (e.g., `i(syear, ref = 2018)`). Otherwise, `fixest` can do strange things with
 omitted groups and interaction terms. You can check the omitted group used by `areg` by running the regression in `areg` or just assuming it'll omit the first group.
