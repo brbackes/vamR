@@ -123,7 +123,7 @@ needs to be included if you're going to include something in the `by()` portion 
 model <- fixest::feols(outcome ~ .[reg_controls] | teacher_id, data = df_prepped, split = ~.group_id)
 ```
 
-The output (i.e., coefficients and number of observations) in each group should be similar to Stata's `areg` absorbing the teacher ID with the same controls and interaction terms. 
+The output (i.e., coefficients and number of observations) in each group should be identical to Stata's `areg` absorbing the teacher ID with the same controls and interaction terms. 
 **If this is not the case then the output of `vam.ado` and `vamR` will differ.**
 
 To make sure output is identical, I've found it helpful to manually specify the omitted group as in above (e.g., `i(syear, ref = 2018)`). Otherwise, `fixest` can do strange things with
@@ -144,3 +144,6 @@ For anyone curious, a look under the hood at why things are faster in `fixest` t
 * Most of the calculations use `data.table` as a backend, which is extremely fast for collapsing and manipulating data
 * The biggest bottleneck right now is the calculation of the `tv` estimates, which is somewhat slow and relies on a bunch of matrix manipulation. Suggestions on how to speed this up welcome!
 
+### Acknowledgements
+
+Thank you to Michael Stepner for the guidance provided by `vam.ado` and to James Cowan for help with using `fixest` with complicated regressors.
