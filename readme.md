@@ -31,9 +31,16 @@ returned <- vam(
 
 Please see the help file by typing `?vam` in R.
 
-A fuller picture of example usage [can be seen in this package test](https://github.com/brbackes/vamR/blob/master/tests/testthat/test-replicate_stata.R) that ensures identical output across
-`vamR` and `vam.ado`. This test estimates teacher value-added by subject (math and ELA) and level (elementary and middle) in Massachusetts using data from grades 4-8 in 2012-2019 and raises
-and error if any changes to the package cause the output from `vamR` to differ from `vam.ado` (the pre-computed `vam.ado` results and underlying data live on our secure server; I cannot share or upload the data).
+### How can we know that `vam.ado` and `vamR` produce identical results?
+
+Whenever the package is checked, it automatically runs a test that ensures identical output across `vamR` and `vam.ado`. 
+This test estimates teacher value-added by subject (math and ELA) and level (elementary and middle) in Massachusetts using data from grades 4-8 in 2012-2019 and raises
+an error if any changes to the package cause the output from `vamR` to differ from `vam.ado`.
+
+* [Here is the Stata .do file that prepares the data and runs `vam.ado`](https://github.com/brbackes/vamR/blob/master/data-raw/vam_sample.do)
+* [Here is the .R file that loads the data, runs `vamR`, and compares the output to `vam.ado`](https://github.com/brbackes/vamR/blob/master/tests/testthat/test-replicate_stata.R)
+* The test raises an error if the correlation between value-added estimates in `vam.ado` and `vamR` is less than 0.99999 in any subject-level combination
+* Note that the underlying data live on our secure server; I cannot share or upload the data
 
 ### Usage (longer)
 
