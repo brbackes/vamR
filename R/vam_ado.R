@@ -25,6 +25,7 @@
 #' @return A dataframe or list depending on `return_df_only`.
 #' @export
 #' @import data.table
+#' @importFrom stats model.matrix resid runif weighted.mean
 #'
 #' @examples
 #' \donttest{
@@ -170,7 +171,7 @@ vam <- function(
       
     })
     
-    pars <- map_df(1:n_groups, ~{
+    pars <- purrr::map_df(1:n_groups, ~{
       tibble::tibble(
         .group = .x, 
         npar = model[[.x]]$nparams,
@@ -193,7 +194,7 @@ vam <- function(
       
     })
     
-    pars <- map_df(1:n_groups, ~{
+    pars <- purrr::map_df(1:n_groups, ~{
       tibble::tibble(
         .group = .x, 
         npar = model[[.x]]$coefficients |> length(),

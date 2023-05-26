@@ -2,3 +2,7 @@
 
 export(vam)
 import(data.table)
+importFrom(stats,model.matrix)
+importFrom(stats,resid)
+importFrom(stats,runif)
+importFrom(stats,weighted.mean)
