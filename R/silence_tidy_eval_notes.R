@@ -1,0 +1,22 @@
+.group <-
+class_mean <-
+class_v <-
+classnum <-
+cov_sameyear <-
+data <-
+get.1 <-
+lag <-
+M <-
+nobs <-
+npar <-
+num_class <-
+rand <-
+score_r <-
+syear <-
+tv <-
+v <-
+var_class <-
+var_ind <-
+var_total <-
+weight <-
+years <- NULL

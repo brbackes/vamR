@@ -7,6 +7,10 @@ can install from [GitHub](https://github.com/brbackes/vamR/) with:
 ``` r
 if (!require("pak")) install.packages("pak")
 pak::pak("brbackes/vamR")
+
+# if you aren't Ben
+pak::pak("air-calder/vamR")
+
 ```
 ### Usage (short)
 
