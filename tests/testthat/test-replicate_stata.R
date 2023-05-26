@@ -3,6 +3,7 @@ test_that("Identical output generated from vam.ado and vamR", {
   # compare vam results with pre-computed stata results from vam.ado
   # this only works with data saved locally (because I cannot put it on github)
   
+  # created here: https://github.com/brbackes/vamR/blob/master/data-raw/vam_sample.do
   raw_df <- data.table::fread("../../../vamR_test_data/vam_data.csv") |>
     tibble::as_tibble()
   
@@ -52,19 +53,34 @@ test_that("Identical output generated from vam.ado and vamR", {
              scores_name = "score_r_R"
   )
   
-  
-  # created in the stata file in same dir
+  # created here: https://github.com/brbackes/vamR/blob/master/data-raw/vam_sample.do
   tv <- haven::read_dta("../../../vamR_test_data/tv.dta")
   
-  tvr <- ret[[4]] |>
-    dplyr::mutate(subject = ifelse(subject == "ELA", 51, 52))
+  tvr <- ret[[1]] |>
+    dplyr::mutate(subject = ifelse(subject == "ELA", 51, 52)) |>
+    dplyr::select(lvl, subject, mepid, syear, tv_R) |>
+    dplyr::group_by(lvl, subject, mepid, syear) |>
+    dplyr::slice_head(n = 1)
+  
+  # test 1: equal number of teacher-year-subject-level non-missing tv obs
+  expect_equal(
+    nrow(tv  |> dplyr::filter(!is.na(tv))), 
+    nrow(tvr |> dplyr::filter(!is.na(tv_R)))
+  )
   
   df <- tv |>
     dplyr::rename(
       tv_stata = tv
     ) |>
-    dplyr::left_join(tvr, by = c("mepid", "syear", "lvl", "subject")) |>
+    dplyr::full_join(tvr, by = c("mepid", "syear", "lvl", "subject")) |>
     dplyr::filter(!is.na(tv_R))
+  
+  # test 2: the number of matched non-missing obs is the same as the number
+  # of non-missing obs from vam.ado
+  expect_equal(
+    nrow(tv  |> dplyr::filter(!is.na(tv))), 
+    nrow(df)
+  )
 
   cors <- df |>
     dplyr::group_by(subject, lvl) |>
@@ -72,10 +88,10 @@ test_that("Identical output generated from vam.ado and vamR", {
     dplyr::arrange(lvl, subject) |>
     as.data.frame()
   
-  # test 1: all correlations (by subject / level) greater than 0.99999
+  # test 3: all correlations (by subject / level) greater than 0.99999
   expect_gt(min(cors$va_cor), 0.99999)  
   
-  # test 2: matched at least 25k teachers in every subject / level
+  # test 4: matched at least 25k teachers in every subject / level (probably redundant with test 2)
   expect_gt(min(cors$tch_yr_obs), 25000)
   
 })

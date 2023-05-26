@@ -16,7 +16,9 @@
 #' @param data Required. Data frame to use.
 #' @param return_df_only Default FALSE. If TRUE, return only the original dataframe with value-added and residuals appended. If FALSE,
 #' return a list of (a) the original df with value-added and residuals, (b) the variance estimates, (c) the autocovariances by lag, and
-#' (d) a teacher-year-(by) dataset with the value-added estimates
+#' (d) a teacher-year-(by) dataset with the value-added estimates. Note that (d) will include teacher estimates for years in which they were
+#' not originally present in the data: this is a difference from the Stata version. To restrict to years in which a teacher was in the data,
+#' use (a) which is the original data with the value-added estimates appended.
 #' @param tv_name Default "tv". String denoting the name of the value-added forecast
 #' @param scores_name Default "score_r". String denoting the name of the score residual.
 #'

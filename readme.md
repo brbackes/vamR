@@ -34,12 +34,13 @@ Please see the help file by typing `?vam` in R.
 ### How can we know that `vam.ado` and `vamR` produce identical results?
 
 Whenever the package is checked, it automatically runs a test that ensures identical output across `vamR` and `vam.ado`. 
-This test estimates teacher value-added by subject (math and ELA) and level (elementary and middle) in Massachusetts using data from grades 4-8 in 2012-2019 and raises
+This test estimates teacher value-added by subject (math and ELA) and level (elementary and middle) in Massachusetts using data from grades 4-8 in 2012-2022 and raises
 an error if any changes to the package cause the output from `vamR` to differ from `vam.ado`.
 
 * [Here is the Stata .do file that prepares the data and runs `vam.ado`](https://github.com/brbackes/vamR/blob/master/data-raw/vam_sample.do)
 * [Here is the .R file that loads the data, runs `vamR`, and compares the output to `vam.ado`](https://github.com/brbackes/vamR/blob/master/tests/testthat/test-replicate_stata.R)
 * The test raises an error if the correlation between value-added estimates in `vam.ado` and `vamR` is less than 0.99999 in any subject-level combination
+* The test raises an error if the number of non-missing teacher-year-subject-level value-added estimates differs across `vam.ado` and `vamR`
 * Note that the underlying data live on our secure server; I cannot share or upload the data
 
 ### Usage (longer)
@@ -131,6 +132,7 @@ omitted groups and interaction terms. You can check the omitted group used by `a
 ### Some more tips
 
 * If you have a large dataframe with lots of missing outcome variables or covariates, you can speed things up by dropping them before feeding the dataframe to `vamR`. This is because the program carries around the entire dataframe (for now. Hopefully this will be fixed in the future).
+* If R complains about anything related to how the interaction terms `i(*)` are specified, try making sure the `fixest` package is loaded with `library(fixest)`.
 
 ### Why is it faster?
 
