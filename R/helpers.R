@@ -1,4 +1,5 @@
 
+is_installed <- function(pkg) requireNamespace(pkg, quietly = TRUE)
 
 # a function
 vectorToStripeDiag <- function(vector_m) {
@@ -37,22 +38,18 @@ compute_tv_matrix <- function(teacher_data, M) {
       year_i = get.1 - year_index,
       scores = class_mean |> as.matrix(),
       A = model.matrix(~years + 0)
-      # A = model.matrix(~.$years + 0)
     ) |>
     tidyr::nest(
-      .by = c(get, get.1)
+      .by = c(get, get.1, .group)
     )
   
-  n <- mm |>
-    dplyr::mutate(
-      tv = lapply(data, function(df) 
-        (M[df$year_i[1], ] %*% t(df$A)) %*% # phi
-          (solve(df$A %*% M %*% t(df$A) + diag(1 / df$weight, nrow = nrow(df$A), ncol = nrow(df$A))) %*% # inverse
-             df$scores)) # scores
-    ) |>
-    dplyr::select(get, get.1, tv) |>
-    tidyr::unnest(tv) |>
-    dplyr::mutate(tv = as.numeric(tv))
+  n <- dplyr::bind_cols(
+    cpp_tv(mm |> dplyr::pull(data), M),
+    mm
+  ) |>
+    dplyr::select(1:3) |>
+    rlang::set_names("tv", "get", "get.1") |>
+    dplyr::select(get, get.1, tv)
   
   n
   
