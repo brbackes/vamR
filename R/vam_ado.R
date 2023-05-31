@@ -66,10 +66,12 @@ vam <- function(
   tictoc::tic("vam")
   
   message <- "VAM estimation"
-  cli::rule(
-    left = ifelse(is_installed("crayon"), crayon::bold(message), glue::glue("\033[1m{message}\033[22m")),
-    right = paste0("vamR version ", utils::packageVersion("vamR")),
-    width = getOption("width")
+  rlang::inform(
+    cli::rule(
+      left = ifelse(is_installed("crayon"), crayon::bold(message), glue::glue("\033[1m{message}\033[22m")),
+      right = paste0("vamR version ", utils::packageVersion("vamR")),
+      width = getOption("width")
+    )
   )
   cli::cli_progress_step("Initial function checks.")
   

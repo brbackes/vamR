@@ -43,13 +43,16 @@ compute_tv_matrix <- function(teacher_data, M) {
       .by = c(get, get.1, .group)
     )
   
-  n <- dplyr::bind_cols(
-    cpp_tv(mm |> dplyr::pull(data), M),
-    mm
-  ) |>
-    dplyr::select(1:3) |>
-    rlang::set_names("tv", "get", "get.1") |>
-    dplyr::select(get, get.1, tv)
+  suppressMessages(
+    n <- dplyr::bind_cols(
+      cpp_tv(mm |> dplyr::pull(data), M),
+      mm
+    ) |>
+      dplyr::select(1:3) |>
+      rlang::set_names("tv", "get", "get.1") |>
+      dplyr::select(get, get.1, tv)
+  )
+
   
   n
   
