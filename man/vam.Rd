@@ -38,9 +38,11 @@ vam(
 
 \item{absorb}{Residualize y on absorbed fixed effects}
 
-\item{driftlimit}{estimate only # autocovariances; set all further autocovariances equal to the last estimate}
+\item{driftlimit}{Estimate only # autocovariances; set all further autocovariances equal to the last estimate}
 
-\item{quasi}{Currently not implemented.}
+\item{quasi}{Generates two additional leave-out VA measures, which are typically used for quasi-experimental tests. This option adds \code{tv_2yr_l},
+which leaves out the forecast year and the prior year, and \code{tv_2yr_f}, which leaves out the forecast year and the following year. Note that if
+\code{tv_name} is specified, those names will also apply to the \verb{_2yr_f} and \verb{_2yr_l} variables.}
 
 \item{data}{Required. Data frame to use.}
 

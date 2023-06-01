@@ -2,6 +2,7 @@
 
 export(vam)
 import(data.table)
+import(fixest)
 importFrom(Rcpp,sourceCpp)
 importFrom(stats,model.matrix)
 importFrom(stats,resid)

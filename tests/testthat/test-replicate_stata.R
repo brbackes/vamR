@@ -49,6 +49,7 @@ test_that("Identical output generated from vam.ado and vamR", {
              driftlimit = 7,
              y = "test",
              return_df_only = FALSE,
+             quasi = TRUE,
              tv_name = "tv_R",
              scores_name = "score_r_R"
   )
@@ -58,7 +59,7 @@ test_that("Identical output generated from vam.ado and vamR", {
   
   tvr <- ret[[1]] |>
     dplyr::mutate(subject = ifelse(subject == "ELA", 51, 52)) |>
-    dplyr::select(lvl, subject, mepid, syear, tv_R) |>
+    dplyr::select(lvl, subject, mepid, syear, tv_R, tv_R_2yr_f, tv_R_2yr_l) |>
     dplyr::group_by(lvl, subject, mepid, syear) |>
     dplyr::slice_head(n = 1)
   
@@ -68,10 +69,19 @@ test_that("Identical output generated from vam.ado and vamR", {
     nrow(tvr |> dplyr::filter(!is.na(tv_R)))
   )
   
+  # equal leave 2 yr out lag
+  expect_equal(
+    nrow(tv  |> dplyr::filter(!is.na(tv_2yr_l))), 
+    nrow(tvr |> dplyr::filter(!is.na(tv_R_2yr_l)))
+  )
+  
+  # equal leave 2 yr out lead
+  expect_equal(
+    nrow(tv  |> dplyr::filter(!is.na(tv_2yr_f))), 
+    nrow(tvr |> dplyr::filter(!is.na(tv_R_2yr_f)))
+  )
+  
   df <- tv |>
-    dplyr::rename(
-      tv_stata = tv
-    ) |>
     dplyr::full_join(tvr, by = c("mepid", "syear", "lvl", "subject")) |>
     dplyr::filter(!is.na(tv_R))
   
@@ -82,16 +92,45 @@ test_that("Identical output generated from vam.ado and vamR", {
     nrow(df)
   )
 
+  # base tv
   cors <- df |>
     dplyr::group_by(subject, lvl) |>
-    dplyr::summarize(va_cor=cor(tv_R, tv_stata), tch_yr_obs = dplyr::n(), .groups = "keep") |>
+    dplyr::summarize(va_cor=cor(tv_R, tv), tch_yr_obs = dplyr::n(), .groups = "keep") |>
     dplyr::arrange(lvl, subject) |>
     as.data.frame()
   
-  # test 3: all correlations (by subject / level) greater than 0.99999
+  # all correlations (by subject / level) greater than 0.99999
   expect_gt(min(cors$va_cor), 0.99999)  
   
-  # test 4: matched at least 25k teachers in every subject / level (probably redundant with test 2)
+  # matched at least 25k teachers in every subject / level (probably redundant with test 2)
+  expect_gt(min(cors$tch_yr_obs), 25000)
+  
+  # 2yr tv l
+  cors <- df |>
+    dplyr::filter(!is.na(tv_R_2yr_l)) |>
+    dplyr::group_by(subject, lvl) |>
+    dplyr::summarize(va_cor=cor(tv_R_2yr_l, tv_2yr_l), tch_yr_obs = dplyr::n(), .groups = "keep") |>
+    dplyr::arrange(lvl, subject) |>
+    as.data.frame()
+  
+  # all correlations (by subject / level) greater than 0.99999
+  expect_gt(min(cors$va_cor), 0.99999)  
+  
+  # matched at least 25k teachers in every subject / level (probably redundant with test 2)
+  expect_gt(min(cors$tch_yr_obs), 25000)
+  
+  # 2yr tv f
+  cors <- df |>
+    dplyr::filter(!is.na(tv_R_2yr_f)) |>
+    dplyr::group_by(subject, lvl) |>
+    dplyr::summarize(va_cor=cor(tv_R_2yr_f, tv_2yr_f), tch_yr_obs = dplyr::n(), .groups = "keep") |>
+    dplyr::arrange(lvl, subject) |>
+    as.data.frame()
+  
+  # all correlations (by subject / level) greater than 0.99999
+  expect_gt(min(cors$va_cor), 0.99999)  
+  
+  # matched at least 25k teachers in every subject / level (probably redundant with test 2)
   expect_gt(min(cors$tch_yr_obs), 25000)
   
 })

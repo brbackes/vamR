@@ -11,8 +11,10 @@
 #' @param by Perform VA estimation separately for each by-group. Ex by = c("subject", "level")
 #' @param tfx_resid Absorb fixed effects during y residualization, but include those fixed effects in the residual
 #' @param absorb Residualize y on absorbed fixed effects
-#' @param driftlimit estimate only # autocovariances; set all further autocovariances equal to the last estimate
-#' @param quasi Currently not implemented.
+#' @param driftlimit Estimate only # autocovariances; set all further autocovariances equal to the last estimate
+#' @param quasi Generates two additional leave-out VA measures, which are typically used for quasi-experimental tests. This option adds `tv_2yr_l`, 
+#' which leaves out the forecast year and the prior year, and `tv_2yr_f`, which leaves out the forecast year and the following year. Note that if
+#' `tv_name` is specified, those names will also apply to the `_2yr_f` and `_2yr_l` variables.
 #' @param data Required. Data frame to use.
 #' @param return_df_only Default FALSE. If TRUE, return only the original dataframe with value-added and residuals appended. If FALSE,
 #' return a list of (a) the original df with value-added and residuals, (b) the variance estimates, (c) the autocovariances by lag, and
@@ -25,6 +27,7 @@
 #' @return A dataframe or list depending on `return_df_only`.
 #' @export
 #' @import data.table
+#' @import fixest
 #' @importFrom stats model.matrix resid runif weighted.mean
 #'
 #' @examples
@@ -78,24 +81,12 @@ vam <- function(
   #########################################
   # function stuff and checks
   
-  if ("tv" %in% names(data)) {
-    stop("The dataset loaded in memory when vam is run cannot have a variable named tv.")
+  if (tv_name %in% names(data)) {
+    stop(glue::glue("The dataset loaded in memory when vam is run cannot have a variable named {tv_name}."))
   }
   
-  if ("score_r" %in% names(data)) {
-    stop("The dataset loaded in memory when vam is run cannot have a variable named score_r.")
-  }
-  
-  if ("tv_2yr_l" %in% names(data) & quasi == TRUE) {
-    stop("The dataset loaded in memory when vam is run cannot have a variable named tv_2yr_l.")
-  }
-  
-  if ("tv_2yr_f" %in% names(data) & quasi == TRUE) {
-    stop("The dataset loaded in memory when vam is run cannot have a variable named tv_2yr_f")
-  }
-  
-  if ("tv_ss" %in% names(data) & quasi == TRUE) {
-    stop("The dataset loaded in memory when vam is run cannot have a variable named tv_ss")
+  if (scores_name %in% names(data)) {
+    stop(glue::glue("The dataset loaded in memory when vam is run cannot have a variable named {scores_name}."))
   }
   
   if (!is.null(absorb) & !is.null(tfx_resid)) {
@@ -394,7 +385,7 @@ vam <- function(
   })
 
   # calculate tv
-  tch_yr <- purrr::map_df(1 : n_groups, function(g){
+  tch_yr_a <- purrr::map_df(1 : n_groups, function(g){
     cli::cli_progress_step("Calculating tv for group {g} of {n_groups}")
     group_df <- tch_yr |> dplyr::filter(.group == g)
     group_M <- matrix_M |> dplyr::filter(.group == g) |> dplyr::pull(M)
@@ -405,26 +396,49 @@ vam <- function(
   }) |> 
   dplyr::rename({{teacher}} := get, {{year}} := get.1, "{tv_name}" := tv)
   
+  # quasi if requested
+  if (quasi == TRUE) {
+    cli::cli_progress_step("Calculating quasi tv estimates")
+    tch_yr_f <- purrr::map_df(1 : n_groups, function(g){
+      cli::cli_progress_step("Calculating tv_2yr_f tv for group {g} of {n_groups}")
+      group_df <- tch_yr |> dplyr::filter(.group == g)
+      group_M <- matrix_M |> dplyr::filter(.group == g) |> dplyr::pull(M)
+      
+      compute_tv_matrix(group_df, group_M, type = "f") |>
+        dplyr::mutate(.group = g)
+      
+    }) |> 
+      dplyr::rename({{teacher}} := get, {{year}} := get.1, "{paste0(tv_name,'_2yr_f')}" := tv)
+    
+    tch_yr_l <- purrr::map_df(1 : n_groups, function(g){
+      cli::cli_progress_step("Calculating tv_2yr_l tv for group {g} of {n_groups}")
+      group_df <- tch_yr |> dplyr::filter(.group == g)
+      group_M <- matrix_M |> dplyr::filter(.group == g) |> dplyr::pull(M)
+      
+      compute_tv_matrix(group_df, group_M, type = "l") |>
+        dplyr::mutate(.group = g)
+      
+    }) |> 
+      dplyr::rename({{teacher}} := get, {{year}} := get.1, "{paste0(tv_name,'_2yr_l')}" := tv)
+    
+    tch_yr_a <- tch_yr_a |>
+      dplyr::full_join(tch_yr_f, by = dplyr::join_by({{teacher}}, {{year}}, .group)) |>
+      dplyr::full_join(tch_yr_l, by = dplyr::join_by({{teacher}}, {{year}}, .group))
+  }
+  
   cli::cli_progress_step("Merging tv estimates back to original data and finishing up.")
   
   preds <- preds |>
-    dplyr::left_join(tch_yr, by = dplyr::join_by({{teacher}}, {{year}}, .group)) |>
+    dplyr::left_join(tch_yr_a, by = dplyr::join_by({{teacher}}, {{year}}, .group)) |>
     dplyr::select(-.group, -n_tested, -class_mean, -index, -individual_dev_from_class) |>
     dplyr::rename("{scores_name}" := score_r)
   
-  if (return_df_only == TRUE) {
-    tictoc::toc()
-    cli::cli_progress_step("Done.")
-    return(preds)
-  }
-
   cli::cli_progress_step("Final steps")
   
   #########################################
   # final messages at the end
   pars <- groups |> dplyr::left_join(pars, by = ".group") |> dplyr::ungroup()
   lags <- groups |> dplyr::left_join(lags, by = ".group", multiple = "all") |> dplyr::ungroup()
-  tch_yr <- groups |> dplyr::left_join(tch_yr, by = ".group", multiple = "all") |> dplyr::ungroup()
   
   cli::cli_alert_info("Standard deviations: total, classes, students, teachers same year")
   purrr::walk(1:n_groups, ~{
@@ -441,6 +455,13 @@ vam <- function(
     
   })
   
+  if (return_df_only == TRUE) {
+    tictoc::toc()
+    cli::cli_progress_step("Done.")
+    return(preds)
+  }
+  
+  tch_yr_a <- groups |> dplyr::left_join(tch_yr_a, by = ".group", multiple = "all") |> dplyr::ungroup()
   cli::cli_progress_step("Done.")
 
   tictoc::toc()
@@ -450,7 +471,7 @@ vam <- function(
     preds , # original data with scores added on
     pars |> dplyr::select(-.group, -v, -class_v),     # variance parameters and stuff
     lags |> dplyr::select(-.group),      # lag stuff
-    tch_yr |> dplyr::select(-.group)     # tch-yr dataset
+    tch_yr_a |> dplyr::select(-.group)     # tch-yr dataset
     ))
 
 }

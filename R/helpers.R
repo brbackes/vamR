@@ -17,14 +17,23 @@ vectorToStripeDiag <- function(vector_m) {
 } 
 
 # compute tv function
-compute_tv_matrix <- function(teacher_data, M) {
+compute_tv_matrix <- function(teacher_data, M, type = "base") {
   
   year_index <- min(teacher_data$get.1) - 1
   
   mm <- tidyr::crossing(
     teacher_data |> dplyr::select(get.1) |> dplyr::distinct(),
     teacher_data |> dplyr::rename(syear = get.1)) |>
-    dplyr::filter(!is.na(class_mean), get.1 != syear) |>
+    dplyr::filter(!is.na(class_mean), get.1 != syear) 
+  
+  if (type == "f") {
+    mm <- mm |> dplyr::filter(get.1 + 1 != syear) # leave next year out
+  }
+  if (type == "l") {
+    mm <- mm |> dplyr::filter(get.1 - 1 != syear) # leave prior year out
+  }
+  
+  mm <- mm |>
     dplyr::mutate(
       years = syear - year_index
     ) |>
