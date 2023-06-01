@@ -207,6 +207,7 @@ vam <- function(
   # calculate total and individual variances
   
   cli::cli_progress_step("Moving data to data.table.")
+  `.` <- list # doesn't do anything except get rid of an annoying check note
   dt <- data.table(preds)
   
   cli::cli_progress_step("Computing variances.")
