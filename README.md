@@ -23,6 +23,7 @@ returned <- vam(
   tfx_resid = "mepid", 
   driftlimit = 7,
   y = "test",
+  quasi = FALSE,
   return_df_only = FALSE,
   tv_name = "tv",
   scores_name = "score_r"
@@ -131,7 +132,6 @@ omitted groups and interaction terms. You can check the omitted group used by `a
 
 ### Some more tips
 
-* `quasi` hasn't been implemented yet
 * If you have a large dataframe with lots of missing outcome variables or covariates, you can speed things up by dropping them before feeding the dataframe to `vamR`. This is because the program carries around the entire dataframe (for now. Hopefully this will be fixed in the future).
 * If R complains about anything related to how the interaction terms `i(*)` are specified, try making sure the `fixest` package is loaded with `library(fixest)`.
 
