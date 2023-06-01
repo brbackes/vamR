@@ -85,16 +85,8 @@ vam <- function(
     stop(glue::glue("The dataset loaded in memory when vam is run cannot have a variable named {tv_name}."))
   }
   
-  if ("score_r" %in% names(data)) {
+  if (scores_name %in% names(data)) {
     stop(glue::glue("The dataset loaded in memory when vam is run cannot have a variable named {scores_name}."))
-  }
-  
-  if ("tv_2yr_l" %in% names(data) & quasi == TRUE) {
-    stop("The dataset loaded in memory when vam is run cannot have a variable named tv_2yr_l.")
-  }
-  
-  if ("tv_2yr_f" %in% names(data) & quasi == TRUE) {
-    stop("The dataset loaded in memory when vam is run cannot have a variable named tv_2yr_f")
   }
   
   if (!is.null(absorb) & !is.null(tfx_resid)) {
