@@ -22,10 +22,11 @@ drop org_code teach_weight parcc online nce_ela nce_mat lag2_std_noncog_factor v
 keep if subject <= 52
  
 * export delimited "D:\Project\working_bb\vamR_test_data\vam_data.csv", replace
+save "D:\Project\working_bb\vamR_test_data\vam_data", replace
 
 * test vam
 
-cap log close
+cap log close _all
 log using vam_stata, name("vam_stat") text replace
 
 	local controls ///
@@ -38,7 +39,7 @@ log using vam_stata, name("vam_stat") text replace
 		crx_asian crx_black crx_hpi crx_hisp crx_amind crx_mult ///
 		crx_lag_mat_nce crx_lag_ela_nce crx_lag_std_noncog_factor)
 		
-	* use vam_data, clear
+	use "D:\Project\working_bb\vamR_test_data\vam_data", clear
 	destring sch_code mepid, replace
 	
 	timer clear 1
@@ -47,21 +48,18 @@ log using vam_stata, name("vam_stat") text replace
 	vam test, teacher(mepid) year(syear) class(section_id) ///
 			by(lvl subject) ///
 			controls(`controls') ///
-			/*absorb(sch_code)*/ tfx_resid(mepid) ///
+			/*absorb(sch_code)*/ quasi tfx_resid(mepid) ///
 			data(merge tv score_r) driftlimit(7)
 
+	keep mepid syear lvl subject tv*
+	duplicates drop
+	drop tv_ss
+	
 	timer off 1
 	qui timer list 1
 	di round(`r(t1)'/60, .1) " minutes"
 	
-	keep mepid syear lvl subject tv
-	duplicates drop
-	
 	save "D:\Project\working_bb\vamR_test_data\tv", replace
-
-	
-	so lvl mepid syear
-
 
 
 cap log close

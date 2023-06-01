@@ -393,7 +393,7 @@ vam <- function(
   })
 
   # calculate tv
-  tch_yr <- purrr::map_df(1 : n_groups, function(g){
+  tch_yr_a <- purrr::map_df(1 : n_groups, function(g){
     cli::cli_progress_step("Calculating tv for group {g} of {n_groups}")
     group_df <- tch_yr |> dplyr::filter(.group == g)
     group_M <- matrix_M |> dplyr::filter(.group == g) |> dplyr::pull(M)
@@ -406,8 +406,9 @@ vam <- function(
   
   # quasi if requested
   if (quasi == TRUE) {
+    cli::cli_progress_step("Calculating quasi tv estimates")
     tch_yr_f <- purrr::map_df(1 : n_groups, function(g){
-      cli::cli_progress_step("Calculating 2yr_f tv for group {g} of {n_groups}")
+      cli::cli_progress_step("Calculating tv_2yr_f tv for group {g} of {n_groups}")
       group_df <- tch_yr |> dplyr::filter(.group == g)
       group_M <- matrix_M |> dplyr::filter(.group == g) |> dplyr::pull(M)
       
@@ -418,7 +419,7 @@ vam <- function(
       dplyr::rename({{teacher}} := get, {{year}} := get.1, "{paste0(tv_name,'_2yr_f')}" := tv)
     
     tch_yr_l <- purrr::map_df(1 : n_groups, function(g){
-      cli::cli_progress_step("Calculating 2yr_l tv for group {g} of {n_groups}")
+      cli::cli_progress_step("Calculating tv_2yr_l tv for group {g} of {n_groups}")
       group_df <- tch_yr |> dplyr::filter(.group == g)
       group_M <- matrix_M |> dplyr::filter(.group == g) |> dplyr::pull(M)
       
@@ -428,7 +429,7 @@ vam <- function(
     }) |> 
       dplyr::rename({{teacher}} := get, {{year}} := get.1, "{paste0(tv_name,'_2yr_l')}" := tv)
     
-    tch_yr <- tch_yr |>
+    tch_yr_a <- tch_yr_a |>
       dplyr::full_join(tch_yr_f, by = dplyr::join_by({{teacher}}, {{year}}, .group)) |>
       dplyr::full_join(tch_yr_l, by = dplyr::join_by({{teacher}}, {{year}}, .group))
   }
@@ -436,7 +437,7 @@ vam <- function(
   cli::cli_progress_step("Merging tv estimates back to original data and finishing up.")
   
   preds <- preds |>
-    dplyr::left_join(tch_yr, by = dplyr::join_by({{teacher}}, {{year}}, .group)) |>
+    dplyr::left_join(tch_yr_a, by = dplyr::join_by({{teacher}}, {{year}}, .group)) |>
     dplyr::select(-.group, -n_tested, -class_mean, -index, -individual_dev_from_class) |>
     dplyr::rename("{scores_name}" := score_r)
   
@@ -468,7 +469,7 @@ vam <- function(
     return(preds)
   }
   
-  tch_yr <- groups |> dplyr::left_join(tch_yr, by = ".group", multiple = "all") |> dplyr::ungroup()
+  tch_yr_a <- groups |> dplyr::left_join(tch_yr_a, by = ".group", multiple = "all") |> dplyr::ungroup()
   cli::cli_progress_step("Done.")
 
   tictoc::toc()
@@ -478,7 +479,7 @@ vam <- function(
     preds , # original data with scores added on
     pars |> dplyr::select(-.group, -v, -class_v),     # variance parameters and stuff
     lags |> dplyr::select(-.group),      # lag stuff
-    tch_yr |> dplyr::select(-.group)     # tch-yr dataset
+    tch_yr_a |> dplyr::select(-.group)     # tch-yr dataset
     ))
 
 }
