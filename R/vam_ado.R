@@ -206,11 +206,10 @@ vam <- function(
   #########################################
   # calculate total and individual variances
   
-  # start using data.table. this is way, way faster than dplyr
-  cli::cli_progress_step("Moving data to data.table and computing variances.")
-  
+  cli::cli_progress_step("Moving data to data.table.")
   dt <- data.table(preds)
   
+  cli::cli_progress_step("Computing variances.")
   dt[, `:=`(c("n_tested", "class_mean", 
               "index", "individual_dev_from_class"), {
                 n_tested <- sum(!is.na(score_r))
@@ -219,9 +218,7 @@ vam <- function(
                 individual_dev_from_class <- score_r - class_mean
                 .(n_tested, class_mean, index, individual_dev_from_class)
               }), by = .(.group, get(teacher), get(year), get(class))]
-  preds <- tibble::as_tibble(dt)   # used to hand back data to user later
   
-  # calculate more parameters
   pars <- purrr::map_df(1:n_groups, ~{
     filtered <- dt[.group == .x]
     tibble::tibble(
@@ -245,7 +242,6 @@ vam <- function(
   cli::cli_progress_step("Collapsing to class.")
   
   # https://stackoverflow.com/questions/16325641/how-to-extract-the-first-n-rows-per-group#comment23381259_16325932
-  # i have no idea how this works but is a million times faster than anything else
   collapsed <- dt[dt[, .I[1], by = .(.group, get(teacher), get(year), get(class))]$V1]   # first obs by group
   
   # same-year covariances
@@ -261,7 +257,7 @@ vam <- function(
       tibble::tibble(cov_sameyear = 0)
     } else {
       
-    # this has lag in the function but seems to create the lead? R is confusing sometimes
+    # cov across classes
     filtered[, lead_class_mean :=  shift(class_mean, n = 1L, fill = NA, type = "lag"), by = .(.group, get(teacher), get(year))]
     filtered[, lead_n_tested :=  shift(n_tested, n = 1L, fill = NA, type = "lag"), by = .(.group, get(teacher), get(year))]
     filtered[, weight :=  n_tested + lead_n_tested]
@@ -430,7 +426,7 @@ vam <- function(
   
   preds <- preds |>
     dplyr::left_join(tch_yr_a, by = dplyr::join_by({{teacher}}, {{year}}, .group)) |>
-    dplyr::select(-.group, -n_tested, -class_mean, -index, -individual_dev_from_class) |>
+    dplyr::select(-.group) |>
     dplyr::rename("{scores_name}" := score_r)
   
   cli::cli_progress_step("Final steps")
