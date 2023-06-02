@@ -297,7 +297,7 @@ vam <- function(
   # checks on drift limit
   data_span <- max(tch_yr$get.1) - min(tch_yr$get.1)
   if (data_span < driftlimit) {
-    stop(glue::glue("You specified a drift limit of {driftlimit} but there are only {data_span} lags of teacher data. Back to the drawing room!"))
+    stop(glue::glue("You specified a drift limit of {driftlimit} but there are only {data_span} lags of teacher data. Back to the drawing board!"))
   }
   if (is.null(driftlimit)) {
     cli::cli_alert_info("No drift limit specified. Using all data which has limit of {data_span}.")
@@ -311,12 +311,11 @@ vam <- function(
   #########################################
   # calculate lags
   
-  cli::cli_progress_step("Preparing to calculate lags")
+  cli::cli_progress_step("Calculating lag year covariances")
   
   setorder(tch_yr, cols = ".group", "get", "get.1")             # Sort data.table
   
   lags <- purrr::map_df(1:n_groups, ~{
-    cli::cli_progress_step("Calculating lags for group {.x} of {n_groups}")
     
     # prepare for calculating lags.
     group <- tch_yr[.group == .x]
@@ -354,6 +353,7 @@ vam <- function(
     dplyr::bind_rows(lags |> dplyr::select(.group, lag, cov_sameyear)) |>
     dplyr::arrange(.group, lag)
   
+  # padding for additional lags beyond driftlimit. each lag beyond driftlimit is equal to driftlimit's cov_sameyear (slice_tail)
   if (data_span > driftlimit) {
     mat <- purrr::map_df(1 : n_groups, ~{
       tibble::tibble(
@@ -366,14 +366,6 @@ vam <- function(
       dplyr::arrange(.group, lag)
   }
   
-  cli::cli_alert_warning("Covariances used for VA computations:")
-  purrr::walk(1:n_groups, ~{
-    print(groups |> dplyr::right_join(
-      mat |> dplyr::filter(.group == .x, lag > 0),
-      by = ".group", multiple = "all"
-      ))
-  })
-  
   # matrix M in CFR code
   matrix_M <- purrr::map_df(1:n_groups, ~{
     mat |>
@@ -382,8 +374,8 @@ vam <- function(
   })
 
   # calculate tv
+  cli::cli_progress_step("Calculating leave-one-year-out value added")
   tch_yr_a <- purrr::map_df(1 : n_groups, function(g){
-    cli::cli_progress_step("Calculating tv for group {g} of {n_groups}")
     group_df <- tch_yr |> dplyr::filter(.group == g)
     group_M <- matrix_M |> dplyr::filter(.group == g) |> dplyr::pull(M)
  
@@ -395,9 +387,8 @@ vam <- function(
   
   # quasi if requested
   if (quasi == TRUE) {
-    cli::cli_progress_step("Calculating quasi tv estimates")
+    cli::cli_progress_step("Calculating leave-two-year-out (t and t+1) value added")
     tch_yr_f <- purrr::map_df(1 : n_groups, function(g){
-      cli::cli_progress_step("Calculating tv_2yr_f tv for group {g} of {n_groups}")
       group_df <- tch_yr |> dplyr::filter(.group == g)
       group_M <- matrix_M |> dplyr::filter(.group == g) |> dplyr::pull(M)
       
@@ -407,8 +398,8 @@ vam <- function(
     }) |> 
       dplyr::rename({{teacher}} := get, {{year}} := get.1, "{paste0(tv_name,'_2yr_f')}" := tv)
     
+    cli::cli_progress_step("Calculating leave-two-year-out (t and t-1) value added")
     tch_yr_l <- purrr::map_df(1 : n_groups, function(g){
-      cli::cli_progress_step("Calculating tv_2yr_l tv for group {g} of {n_groups}")
       group_df <- tch_yr |> dplyr::filter(.group == g)
       group_M <- matrix_M |> dplyr::filter(.group == g) |> dplyr::pull(M)
       
@@ -430,8 +421,6 @@ vam <- function(
     dplyr::select(-.group) |>
     dplyr::rename("{scores_name}" := score_r)
   
-  cli::cli_progress_step("Final steps")
-  
   #########################################
   # final messages at the end
   pars <- groups |> dplyr::left_join(pars, by = ".group") |> dplyr::ungroup()
@@ -447,7 +436,7 @@ vam <- function(
     lags |>
       dplyr::filter(.group == .x) |>
       dplyr::ungroup() |>
-      dplyr::select(!!!rlang::syms(by), cov_sameyear, corr, nobs) |>
+      dplyr::select(!!!rlang::syms(by), lag, cov_sameyear, corr, nobs) |>
       print()
     
   })
