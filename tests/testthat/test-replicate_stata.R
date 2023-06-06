@@ -38,6 +38,8 @@ test_that("Identical output generated from vam.ado and vamR", {
   controls <- paste(paste("i(grade, ", controls), ")") |>
     reformulate()
   
+  fixest::setFixest_nthreads(.90)
+  
   # teacher fe
   ret <- vam(by = c("lvl", "subject"), 
              data = df_prepped, 
