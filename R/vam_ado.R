@@ -121,14 +121,11 @@ vam <- function(
 
   #########################################
   # residualization
-  
-  # Turn into a fixest control vector
-  fixest::setFixest_fml(..ctrl = controls)
 
   # teacher fe
   if (!is.null(tfx_resid)) {
     cli::cli_progress_step("Residualizing with teacher FE.")
-    model <- fixest::feols(.[y] ~ ..ctrl | .[tfx_resid], data = reg_df, split = ~.group)
+    model <- fixest::feols(.[y] ~ .[controls] | .[tfx_resid], data = reg_df, split = ~.group)
 
     resids <- resid(model, type = "response", na.rm = FALSE)
     preds <- purrr::map_df(1:n_groups, ~{
@@ -161,7 +158,7 @@ vam <- function(
   # other fe that's not teacher
   if (!is.null(absorb)) {
     cli::cli_progress_step("Residualizing with a non-teacher FE: {absorb}")
-    model <- fixest::feols(.[y] ~ ..ctrl | .[absorb], data = reg_df, split = ~.group)
+    model <- fixest::feols(.[y] ~ .[controls] | .[absorb], data = reg_df, split = ~.group)
     
     resids <- resid(model, type = "response", na.rm = FALSE)
     preds <- purrr::map_df(1:n_groups, ~{
@@ -184,7 +181,7 @@ vam <- function(
   # no fe
   if (is.null(absorb) & is.null(tfx_resid)) {
     cli::cli_progress_step("Residualizing with no fixed effects.")
-    model <- fixest::feols(.[y] ~ ..ctrl, data = reg_df, split = ~.group)
+    model <- fixest::feols(.[y] ~ .[controls], data = reg_df, split = ~.group)
     
     resids <- resid(model, type = "response", na.rm = FALSE)
     preds <- purrr::map_df(1:n_groups, ~{

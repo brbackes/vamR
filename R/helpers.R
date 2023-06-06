@@ -23,8 +23,14 @@ compute_tv_matrix <- function(teacher_data, M, type = "base") {
   
   mm <- tidyr::crossing(
     teacher_data |> dplyr::select(get.1) |> dplyr::distinct(),
-    teacher_data |> dplyr::rename(syear = get.1)) |>
-    dplyr::filter(!is.na(class_mean), get.1 != syear) 
+    teacher_data |> dplyr::rename(syear = get.1)
+  ) |>
+    dplyr::filter(!is.na(class_mean), get.1 != syear) |>
+    dplyr::select(-n_tested) |>
+    dplyr::mutate(
+      years = syear - year_index,
+      year_i = get.1 - year_index
+    )
   
   if (type == "f") {
     mm <- mm |> dplyr::filter(get.1 + 1 != syear) # leave next year out
@@ -34,27 +40,13 @@ compute_tv_matrix <- function(teacher_data, M, type = "base") {
   }
   
   mm <- mm |>
-    dplyr::mutate(
-      years = syear - year_index
-    ) |>
-    # necessary to make the factor capture every year
-    dplyr::bind_rows(
-      tibble::tibble(years = 1 : ncol(M))
-    ) |>
-    dplyr::mutate(years = as.factor(years)) |>
-    dplyr::filter(!is.na(get.1)) |>
-    dplyr::mutate(
-      year_i = get.1 - year_index,
-      scores = class_mean |> as.matrix(),
-      A = model.matrix(~years + 0)
-    ) |>
     tidyr::nest(
       .by = c(get, get.1, .group)
     )
   
   suppressMessages(
     n <- dplyr::bind_cols(
-      cpp_tv(mm |> dplyr::pull(data), M),
+      cpp_tv(mm$data, M),
       mm
     ) |>
       dplyr::select(1:3) |>
