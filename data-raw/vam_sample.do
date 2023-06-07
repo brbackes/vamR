@@ -17,11 +17,11 @@
 
 drop course section course_grade grade_code lag_2x_ela_nce lag_2x_mat_nce retained lag_retained lag2_retained absence ln_absence ln_lag_absence ln_lag2_absence days_susp ln_days_susp ln_lag_days_susp ln_lag2_days_susp gpa lag_gpa lead_gpa eng saf env clc rel par emo psf bul ins men dis mtel_subj mtel_clst exp_lic exp_hire crx_lag_retained scx_lag_retained crx_ln_lag_absence scx_ln_lag_absence crx_ln_lag_days_susp scx_ln_lag_days_susp crx_lag_gpa
 
-drop org_code teach_weight parcc online nce_ela nce_mat lag2_std_noncog_factor voc grade_span tr_grade scx_lep scx_male scx_frl scx_sped_fi scx_sped_pi scx_sped_ss scx_asian scx_black scx_hpi scx_hisp scx_amind scx_mult scx_lag_mat_nce scx_lag_ela_nce scx_lag_gpa scx_lag_std_noncog_factor track_course_id track_sch_id
+drop org_code parcc online nce_ela nce_mat lag2_std_noncog_factor voc grade_span tr_grade scx_lep scx_male scx_frl scx_sped_fi scx_sped_pi scx_sped_ss scx_asian scx_black scx_hpi scx_hisp scx_amind scx_mult scx_lag_mat_nce scx_lag_ela_nce scx_lag_gpa scx_lag_std_noncog_factor track_course_id track_sch_id
 
 keep if subject <= 52
  
-* export delimited "D:\Project\working_bb\vamR_test_data\vam_data.csv", replace
+export delimited "D:\Project\working_bb\vamR_test_data\vam_data.csv", replace
 save "D:\Project\working_bb\vamR_test_data\vam_data", replace
 
 * test vam
@@ -48,20 +48,46 @@ log using vam_stata, name("vam_stat") text replace
 	vam test, teacher(mepid) year(syear) class(section_id) ///
 			by(lvl subject) ///
 			controls(`controls') ///
-			/*absorb(sch_code)*/ quasi tfx_resid(mepid) ///
+			quasi tfx_resid(mepid) ///
 			data(merge tv score_r) driftlimit(7)
 
-	keep mepid syear lvl subject tv*
-	duplicates drop
-	drop tv_ss
+	keep mepid syear lvl subject tv* test teach_weight sch_code grade
 	
+	save "D:\Project\working_bb\vamR_test_data\tv_full", replace	// for cfr test later
+	drop test teach_weight tv_ss sch_code grade
+	
+	duplicates drop
+	
+	save "D:\Project\working_bb\vamR_test_data\tv", replace
+	
+* cfr test
+	use "D:\Project\working_bb\vamR_test_data\tv_full", clear
+	keep if tv_2yr_l != . & tv_2yr_f != . & test != .
+	gcollapse (mean) test tv* (sum) num = teach_weight, by(sch_code grade subject syear) fast	
+	gen cohort = syear - grade
+	egen sch_cohort = group(sch_code cohort)
+
+	egen pid = group(sch_code grade subject)
+	tsset pid syear
+	gen tot_obs = num + L.num
+	gen diff = tv_2yr_l - l.tv_2yr_f
+	gen d_mean_score = D.test
+		
+	areg d_mean_score diff [aw = tot_obs], cluster(sch_cohort) absorb(syear)
+	local b = _b[diff]
+	di "`b'"
+	local se = _se[diff]
+	di "`se'"
+	
+	file open cfr using "D:\Project\working_bb\vamR_test_data\cfr.csv", write replace
+	file write cfr "program,b,se," _newline
+	file write cfr "vam.do, `b', `se'," _newline
+	file close cfr
+
 	timer off 1
 	qui timer list 1
 	di round(`r(t1)'/60, .1) " minutes"
 	
-	save "D:\Project\working_bb\vamR_test_data\tv", replace
-
-
 cap log close
 
 

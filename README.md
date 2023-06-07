@@ -42,6 +42,7 @@ an error if any changes to the package cause the output from `vamR` to differ fr
 * [Here is the .R file that loads the data, runs `vamR`, and compares the output to `vam.ado`](https://github.com/brbackes/vamR/blob/master/tests/testthat/test-replicate_stata.R)
 * The test raises an error if the correlation between value-added estimates in `vam.ado` and `vamR` is less than 0.99999 in any subject-level combination
 * The test raises an error if the number of non-missing teacher-year-subject-level value-added estimates differs across `vam.ado` and `vamR`
+* The test raises an error if the results of the CFR quasi-experimental test using changes in achievement versus leave-two-out value-added in school-grade-subject-year cells differ across Stata and R (tolerance = 0.0001)
 * Note that the underlying data live on our secure server; I cannot share or upload the data
 
 ### Usage (longer)
