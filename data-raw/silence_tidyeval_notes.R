@@ -1,5 +1,6 @@
 # thank you
 # https://stackoverflow.com/questions/58026637/no-visible-global-function-definition-for
+# note: if re-running this, need to erase everything in "R/silence_tidy_eval_notes.R" first
 
 library(tidyverse)
 

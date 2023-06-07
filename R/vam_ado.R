@@ -8,23 +8,38 @@
 #' @param year Required. The name of the year identifier in quotations.
 #' @param class Required. The name of the classroom identifier in quotations.
 #' @param controls Controls to be used in the residualization.
-#' @param by Perform VA estimation separately for each by-group. Ex by = c("subject", "level")
-#' @param tfx_resid Absorb fixed effects during y residualization, but include those fixed effects in the residual
-#' @param absorb Residualize y on absorbed fixed effects
-#' @param driftlimit Estimate only # autocovariances; set all further autocovariances equal to the last estimate
-#' @param quasi Generates two additional leave-out VA measures, which are typically used for quasi-experimental tests. This option adds `tv_2yr_l`, 
+#' @param by Perform VA estimation separately for each by-group. Ex by = c("subject", "level").
+#' @param tfx_resid Absorb fixed effects during y residualization, but include those fixed effects in the residual.
+#' @param absorb Residualize y on absorbed fixed effects.
+#' @param data Required. Data frame to use.
+#' @param driftlimit Estimate only # autocovariances; set all further autocovariances equal to the last estimate.
+#' @param quasi Default FALSE. Generates two additional leave-out VA measures, which are typically used for quasi-experimental tests. This option adds `tv_2yr_l`, 
 #' which leaves out the forecast year and the prior year, and `tv_2yr_f`, which leaves out the forecast year and the following year. Note that if
 #' `tv_name` is specified, those names will also apply to the `_2yr_f` and `_2yr_l` variables.
-#' @param data Required. Data frame to use.
+#' @param tv_name Default "tv". String denoting the name of the value-added forecast.
+#' @param scores_name Default "score_r". String denoting the name of the score residual.
+#' @param cfr_test Default FALSE. Conducts the CFR quasi-experimental test for forecast bias in value-added estimates. Collapses data to school-grade-year-subject
+#' cells with average `y` and average value-added. Regresses change in `y` on change in leave-out value-added, using the 2-year leave-outs generated
+#' with the `quasi` command as in CFR. Regression includes year fixed effects and clusters standard errors by school-cohort. If this is TRUE,
+#' you must specify `cfr_school`, `cfr_grade`, and `cfr_subject` so that the data can be collapsed appropriately. If this is TRUE, the `quasi`
+#' estimates will automatically be calculated.
+#' @param cfr_school Required if `cfr_test` is TRUE. Name of the school variable used in the collapse for the `cfr_test`. Not used in value-added
+#' calculations.
+#' @param cfr_grade Required if `cfr_test` is TRUE. Name of the grade variable used in the collapse for the `cfr_test`. Not used in value-added
+#' calculations.
+#' @param cfr_subject Required if `cfr_test` is TRUE. Name of the subject variable used in the collapse for the `cfr_test`. Not used in value-added
+#' calculations.
+#' @param cfr_weight Optional if `cfr_test` is TRUE. Name of the teacher weight variable used in the collapse for `cfr_test` (typically a 
+#' teacher dosage variable greater than 0 and no greater than 1). Not used in the value-added calculations.
 #' @param return_df_only Default FALSE. If TRUE, return only the original dataframe with value-added and residuals appended. If FALSE,
 #' return a list of (a) the original df with value-added and residuals, (b) the variance estimates, (c) the autocovariances by lag, and
 #' (d) a teacher-year-(by) dataset with the value-added estimates. Note that (d) will include teacher estimates for years in which they were
 #' not originally present in the data: this is a difference from the Stata version. To restrict to years in which a teacher was in the data,
 #' use (a) which is the original data with the value-added estimates appended.
-#' @param tv_name Default "tv". String denoting the name of the value-added forecast
-#' @param scores_name Default "score_r". String denoting the name of the score residual.
+#' @param return_cfr_test_only Default FALSE. If TRUE, return only the coefficient and standard error of the `cfr_test` result. Useful for checking
+#' the bias of many different specifications without having to hold each resulting set of `tv` estimates in memory.
 #'
-#' @return A dataframe or list depending on `return_df_only`.
+#' @return A dataframe or list depending on `return_df_only` and `return_cfr_test_only`.
 #' @export
 #' @import data.table
 #' @import fixest
@@ -59,11 +74,17 @@ vam <- function(
     tfx_resid = NULL,
     absorb = NULL,
     driftlimit = NULL,
-    quasi = FALSE,
     data = NULL,
-    return_df_only = FALSE,
+    quasi = FALSE,
     tv_name = "tv",
-    scores_name = "score_r"
+    scores_name = "score_r",
+    cfr_test = FALSE,
+    cfr_school = NULL,
+    cfr_grade = NULL,
+    cfr_subject = NULL,
+    cfr_weight = NULL,
+    return_df_only = FALSE,
+    return_cfr_test_only = FALSE
 ) {
   
   tictoc::tic("vam")
@@ -81,6 +102,10 @@ vam <- function(
   #########################################
   # function stuff and checks
   
+  if(return_df_only == TRUE & return_cfr_test_only == TRUE) {
+    stop("You asked to only return the the joined data and also to only return the CFR test results. Please pick one or the other or leave all the return only's blank.")
+  }
+  
   if (tv_name %in% names(data)) {
     stop(glue::glue("The dataset loaded in memory when vam is run cannot have a variable named {tv_name}."))
   }
@@ -95,6 +120,10 @@ vam <- function(
   
   if (is.null(data)) {
     stop("You must provide a dataframe using the data argument.")
+  }
+  
+  if (is.null(cfr_school) & cfr_test == TRUE) {
+    stop("You must provide school, grade, and subject variable names to run CFR test")
   }
   
   # handle the "by" variables by making a .group variable for convenience
@@ -383,7 +412,7 @@ vam <- function(
   dplyr::rename({{teacher}} := get, {{year}} := get.1, "{tv_name}" := tv)
   
   # quasi if requested
-  if (quasi == TRUE) {
+  if (quasi == TRUE | cfr_test == TRUE | return_cfr_test_only == TRUE) {
     cli::cli_progress_step("Calculating leave-two-year-out (t and t+1) value added")
     tch_yr_f <- purrr::map_df(1 : n_groups, function(g){
       group_df <- tch_yr |> dplyr::filter(.group == g)
@@ -411,12 +440,74 @@ vam <- function(
       dplyr::full_join(tch_yr_l, by = dplyr::join_by({{teacher}}, {{year}}, .group))
   }
   
-  cli::cli_progress_step("Merging tv estimates back to original data and finishing up.")
+  cli::cli_progress_step("Merging tv estimates back to original data.")
   
   preds <- preds |>
     dplyr::left_join(tch_yr_a, by = dplyr::join_by({{teacher}}, {{year}}, .group)) |>
     dplyr::select(-.group) |>
     dplyr::rename("{scores_name}" := score_r)
+  
+  if (cfr_test == TRUE | return_cfr_test_only == TRUE) {
+    cli::cli_progress_step("Performing CFR quasi-experimental test.")
+    
+    f_name <- paste0(tv_name,"_2yr_f")
+    l_name <- paste0(tv_name,"_2yr_l")
+    
+    # makes data.table easier to work with below
+    cfr_preds <- preds |>
+      dplyr::rename(
+        .school = {{cfr_school}},
+        .grade = {{cfr_grade}},
+        .year = {{year}},
+        .subject = {{cfr_subject}},
+        .tv_f = {{f_name}},
+        .tv_l = {{l_name}},
+        .score = {{y}}
+      ) |>
+      dplyr::filter(
+        !is.na(.tv_f),
+        !is.na(.tv_l),
+        !is.na(.score)
+      ) 
+    if (is.null(cfr_weight)) {
+      cfr_preds[[".dosage"]] <- 1
+    } else {
+      cfr_preds <- cfr_preds |> dplyr::rename(.dosage = {{cfr_weight}})
+    }
+    
+    cfr_preds <- cfr_preds |>
+      dplyr::select(
+        .school,
+        .grade,
+        .year,
+        .subject,
+        .tv_f,
+        .tv_l,
+        .score,
+        .dosage
+      ) |> 
+      data.table()
+    
+    # collapse to school-grade-subject-year
+    cfr_data <- cfr_preds[, .(score = mean(.score), tv_f = mean(.tv_f), tv_l = mean(.tv_l), 
+                              num = sum(.dosage), cohort = .year - .grade), keyby = .(.school, 
+                                                                          .grade, .year, .subject)][, `:=`(pid = .GRP), by = .(.school, 
+                                                                                                           .grade, .subject)][, `:=`(sch_cohort = .GRP), by = .(.school, 
+                                                                                                                                                          cohort)]
+    # 
+    # make panel and run regression
+    p <- fixest::panel((data.table(cfr_data)), ~pid+.year)
+    p[, tot_obs := num + fixest::l(num, lag = 1)]
+    p[, diff := tv_l - fixest::l(tv_f, lag = 1)]
+    p[, d_mean_score := score - fixest::l(score, lag = 1)]
+    model1 <- fixest::feols(d_mean_score ~ diff | .year, data = p, weights = p$tot_obs, cluster = ~sch_cohort)
+    cfr <- tibble::tibble(
+      quasi_b = model1$coefficients[1] |> as.numeric(),
+      quasi_se = model1$se[1] |> as.numeric()
+    )
+  }
+  
+
   
   #########################################
   # final messages at the end
@@ -438,6 +529,12 @@ vam <- function(
     
   })
   
+  if (return_cfr_test_only == TRUE) {
+    tictoc::toc()
+    cli::cli_progress_step("Done.")
+    return(cfr)
+  }
+  
   if (return_df_only == TRUE) {
     tictoc::toc()
     cli::cli_progress_step("Done.")
@@ -445,17 +542,31 @@ vam <- function(
   }
   
   tch_yr_a <- groups |> dplyr::left_join(tch_yr_a, by = ".group", multiple = "all") |> dplyr::ungroup()
+  
+  if (cfr_test == FALSE) {
+    return_list <- list(
+      "Data" = preds , # original data with scores added on
+      "Parameters" = pars |> dplyr::select(-.group, -v, -class_v),     # variance parameters and stuff
+      "Covariances" = lags |> dplyr::select(-.group),      # lag stuff
+      "Value_Added" = tch_yr_a |> dplyr::select(-.group)     # tch-yr dataset
+    )
+  } else {
+    return_list <- list(
+      "Data" = preds , # original data with scores added on
+      "Parameters" = pars |> dplyr::select(-.group, -v, -class_v),     # variance parameters and stuff
+      "Covariances" = lags |> dplyr::select(-.group),      # lag stuff
+      "Value_Added" = tch_yr_a |> dplyr::select(-.group),     # tch-yr dataset
+      "CFR_Test" = cfr                                 # cfr test coef and se
+    )
+  }
+  
   cli::cli_progress_step("Done.")
-
   tictoc::toc()
   
   # once finished, remove .group from pars and lags
-  return(list(
-    preds , # original data with scores added on
-    pars |> dplyr::select(-.group, -v, -class_v),     # variance parameters and stuff
-    lags |> dplyr::select(-.group),      # lag stuff
-    tch_yr_a |> dplyr::select(-.group)     # tch-yr dataset
-    ))
+  return(
+    return_list
+  )
 
 }
 

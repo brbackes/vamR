@@ -14,11 +14,17 @@ vam(
   tfx_resid = NULL,
   absorb = NULL,
   driftlimit = NULL,
-  quasi = FALSE,
   data = NULL,
-  return_df_only = FALSE,
+  quasi = FALSE,
   tv_name = "tv",
-  scores_name = "score_r"
+  scores_name = "score_r",
+  cfr_test = FALSE,
+  cfr_school = NULL,
+  cfr_grade = NULL,
+  cfr_subject = NULL,
+  cfr_weight = NULL,
+  return_df_only = FALSE,
+  return_cfr_test_only = FALSE
 )
 }
 \arguments{
@@ -32,19 +38,41 @@ vam(
 
 \item{controls}{Controls to be used in the residualization.}
 
-\item{by}{Perform VA estimation separately for each by-group. Ex by = c("subject", "level")}
+\item{by}{Perform VA estimation separately for each by-group. Ex by = c("subject", "level").}
 
-\item{tfx_resid}{Absorb fixed effects during y residualization, but include those fixed effects in the residual}
+\item{tfx_resid}{Absorb fixed effects during y residualization, but include those fixed effects in the residual.}
 
-\item{absorb}{Residualize y on absorbed fixed effects}
+\item{absorb}{Residualize y on absorbed fixed effects.}
 
-\item{driftlimit}{Estimate only # autocovariances; set all further autocovariances equal to the last estimate}
+\item{driftlimit}{Estimate only # autocovariances; set all further autocovariances equal to the last estimate.}
 
-\item{quasi}{Generates two additional leave-out VA measures, which are typically used for quasi-experimental tests. This option adds \code{tv_2yr_l},
+\item{data}{Required. Data frame to use.}
+
+\item{quasi}{Default FALSE. Generates two additional leave-out VA measures, which are typically used for quasi-experimental tests. This option adds \code{tv_2yr_l},
 which leaves out the forecast year and the prior year, and \code{tv_2yr_f}, which leaves out the forecast year and the following year. Note that if
 \code{tv_name} is specified, those names will also apply to the \verb{_2yr_f} and \verb{_2yr_l} variables.}
 
-\item{data}{Required. Data frame to use.}
+\item{tv_name}{Default "tv". String denoting the name of the value-added forecast.}
+
+\item{scores_name}{Default "score_r". String denoting the name of the score residual.}
+
+\item{cfr_test}{Default FALSE. Conducts the CFR quasi-experimental test for forecast bias in value-added estimates. Collapses data to school-grade-year-subject
+cells with average \code{y} and average value-added. Regresses change in \code{y} on change in leave-out value-added, using the 2-year leave-outs generated
+with the \code{quasi} command as in CFR. Regression includes year fixed effects and clusters standard errors by school-cohort. If this is TRUE,
+you must specify \code{cfr_school}, \code{cfr_grade}, and \code{cfr_subject} so that the data can be collapsed appropriately. If this is TRUE, the \code{quasi}
+estimates will automatically be calculated.}
+
+\item{cfr_school}{Required if \code{cfr_test} is TRUE. Name of the school variable used in the collapse for the \code{cfr_test}. Not used in value-added
+calculations.}
+
+\item{cfr_grade}{Required if \code{cfr_test} is TRUE. Name of the grade variable used in the collapse for the \code{cfr_test}. Not used in value-added
+calculations.}
+
+\item{cfr_subject}{Required if \code{cfr_test} is TRUE. Name of the subject variable used in the collapse for the \code{cfr_test}. Not used in value-added
+calculations.}
+
+\item{cfr_weight}{Optional if \code{cfr_test} is TRUE. Name of the teacher weight variable used in the collapse for \code{cfr_test} (typically a
+teacher dosage variable greater than 0 and no greater than 1). Not used in the value-added calculations.}
 
 \item{return_df_only}{Default FALSE. If TRUE, return only the original dataframe with value-added and residuals appended. If FALSE,
 return a list of (a) the original df with value-added and residuals, (b) the variance estimates, (c) the autocovariances by lag, and
@@ -52,12 +80,11 @@ return a list of (a) the original df with value-added and residuals, (b) the var
 not originally present in the data: this is a difference from the Stata version. To restrict to years in which a teacher was in the data,
 use (a) which is the original data with the value-added estimates appended.}
 
-\item{tv_name}{Default "tv". String denoting the name of the value-added forecast}
-
-\item{scores_name}{Default "score_r". String denoting the name of the score residual.}
+\item{return_cfr_test_only}{Default FALSE. If TRUE, return only the coefficient and standard error of the \code{cfr_test} result. Useful for checking
+the bias of many different specifications without having to hold each resulting set of \code{tv} estimates in memory.}
 }
 \value{
-A dataframe or list depending on \code{return_df_only}.
+A dataframe or list depending on \code{return_df_only} and \code{return_cfr_test_only}.
 }
 \description{
 This program uses student-level outcomes (typically test scores) to compute teacher value-added (VA) measures.

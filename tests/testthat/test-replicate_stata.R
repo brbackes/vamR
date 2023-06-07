@@ -38,8 +38,6 @@ test_that("Identical output generated from vam.ado and vamR", {
   controls <- paste(paste("i(grade, ", controls), ")") |>
     reformulate()
   
-  fixest::setFixest_nthreads(.90)
-  
   # teacher fe
   ret <- vam(by = c("lvl", "subject"), 
              data = df_prepped, 
@@ -50,14 +48,19 @@ test_that("Identical output generated from vam.ado and vamR", {
              tfx_resid = "mepid", 
              driftlimit = 7,
              y = "test",
-             return_df_only = FALSE,
              quasi = TRUE,
+             cfr_test = TRUE,
+             cfr_school = "sch_code",
+             cfr_grade = "grade",
+             cfr_subject = "subject",
+             cfr_weight = "teach_weight",
              tv_name = "tv_R",
              scores_name = "score_r_R"
   )
   
   # created here: https://github.com/brbackes/vamR/blob/master/data-raw/vam_sample.do
-  tv <- haven::read_dta("../../../vamR_test_data/tv.dta")
+    tv <- haven::read_dta("../../../vamR_test_data/tv.dta")
+    cfr_stata <- data.table::fread("../../../vamR_test_data/cfr.csv") |> tibble::as_tibble() |> dplyr::select(1:3)
   
   tvr <- ret[[1]] |>
     dplyr::mutate(subject = ifelse(subject == "ELA", 51, 52)) |>
@@ -65,7 +68,8 @@ test_that("Identical output generated from vam.ado and vamR", {
     dplyr::group_by(lvl, subject, mepid, syear) |>
     dplyr::slice_head(n = 1)
   
-  # test 1: equal number of teacher-year-subject-level non-missing tv obs
+  # equal number of teacher-year-subject-level non-missing tv obs
+  # among teachers present in given year in original data
   expect_equal(
     nrow(tv  |> dplyr::filter(!is.na(tv))), 
     nrow(tvr |> dplyr::filter(!is.na(tv_R)))
@@ -134,5 +138,9 @@ test_that("Identical output generated from vam.ado and vamR", {
   
   # matched at least 25k teachers in every subject / level (probably redundant with test 2)
   expect_gt(min(cors$tch_yr_obs), 25000)
+  
+  # quasi-experimental test
+  cfr_r <- ret[[5]]
+  expect_equal(cfr_r$quasi_b, cfr_stata$b, tolerance = 0.0001)
   
 })
