@@ -137,7 +137,7 @@ omitted groups and interaction terms. You can check the omitted group used by `a
 
 ### Why is it faster?
 
-For anyone curious, a look under the hood at why things are faster in `fixest` than `vam.ado`. Annecdotally, I've found `vamR` to be 4-5 times faster than `vam.ado`, with larger speed gains coming when more `by()` groups are included and the residualization regression is more complicated, especially with interaction terms. Before getting into it, note that `vam.ado` was extremely well-written given the constraints at the time (a Stata package written in 2013); this is not a criticism! This package would not exist if `vam.ado` weren't so (a) useful and (b) clearly written.
+For anyone curious, a look under the hood at why things are faster in `fixest` than `vam.ado`. Annecdotally, I've found `vamR` to be 5-10 times faster than `vam.ado`, with larger speed gains coming when more `by()` groups are included and the residualization regression is more complicated, especially with interaction terms. Before getting into it, note that `vam.ado` was extremely well-written given the constraints at the time (a Stata package written in 2013); this is not a criticism! This package would not exist if `vam.ado` weren't so (a) useful and (b) clearly written.
 
 * `fixest` is much, much faster than `areg`
 * Most of the calculations use `data.table` as a backend, which is extremely fast for collapsing and manipulating data
