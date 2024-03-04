@@ -1,4 +1,11 @@
 url: https://brbackes.github.io/vamR/
 template:
   bootstrap: 5
-
+development:
+  mode: auto
+repo:
+  url:
+    home: https://github.com/brbackes/vamR/
+    source: https://github.com/brbackes/vamR/blob/HEAD/
+    issue: https://github.com/brbackes/vamR/issues/
+    user: https://github.com/
