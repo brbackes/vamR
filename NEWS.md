@@ -1,3 +1,7 @@
+# vamR 0.0.0.9009
+
+* Fixed error caused when driftlimit was not specified
+
 # vamR 0.0.0.9008
 
 * Sped up VAM step by using `Rcpp`
