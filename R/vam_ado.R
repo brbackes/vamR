@@ -103,27 +103,27 @@ vam <- function(
   # function stuff and checks
   
   if(return_df_only == TRUE & return_cfr_test_only == TRUE) {
-    stop("You asked to only return the the joined data and also to only return the CFR test results. Please pick one or the other or leave all the return only's blank.")
+    cli::cli_abort("You asked to only return the the joined data and also to only return the CFR test results. Please pick one or the other or leave all the return only's blank.")
   }
   
   if (tv_name %in% names(data)) {
-    stop(glue::glue("The dataset loaded in memory when vam is run cannot have a variable named {tv_name}."))
+    cli::cli_abort(glue::glue("The dataset loaded in memory when vam is run cannot have a variable named {tv_name}."))
   }
   
   if (scores_name %in% names(data)) {
-    stop(glue::glue("The dataset loaded in memory when vam is run cannot have a variable named {scores_name}."))
+    cli::cli_abort(glue::glue("The dataset loaded in memory when vam is run cannot have a variable named {scores_name}."))
   }
   
   if (!is.null(absorb) & !is.null(tfx_resid)) {
-    stop("Cannot specify an absorb variable and a tfx_resid variable simultaneously.")
+    cli::cli_abort("Cannot specify an absorb variable and a tfx_resid variable simultaneously.")
   }
   
   if (is.null(data)) {
-    stop("You must provide a dataframe using the data argument.")
+    cli::cli_abort("You must provide a dataframe using the data argument.")
   }
   
   if (is.null(cfr_school) & cfr_test == TRUE) {
-    stop("You must provide school, grade, and subject variable names to run CFR test")
+    cli::cli_abort("You must provide school, grade, and subject variable names to run CFR test")
   }
   
   # handle the "by" variables by making a .group variable for convenience
@@ -322,13 +322,14 @@ vam <- function(
   
   # checks on drift limit
   data_span <- max(tch_yr$get.1) - min(tch_yr$get.1)
-  if (data_span < driftlimit) {
-    stop(glue::glue("You specified a drift limit of {driftlimit} but there are only {data_span} lags of teacher data. Back to the drawing board!"))
-  }
   if (is.null(driftlimit)) {
     cli::cli_alert_info("No drift limit specified. Using all data which has limit of {data_span}.")
     lags_limit <- data_span
+    driftlimit <- data_span
   } 
+  if (data_span < driftlimit) {
+    cli::cli_abort("You specified a drift limit of {driftlimit} but there are only {data_span} lags of teacher data. Back to the drawing board!")
+  }
   if (data_span >= driftlimit) {
     cli::cli_alert_info("You specified a drift limit of {driftlimit}")
     lags_limit <- driftlimit

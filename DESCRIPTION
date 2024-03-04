@@ -1,6 +1,6 @@
 Package: vamR
 Title: Teacher Value Added Calculator
-Version: 0.0.0.9008
+Version: 0.0.0.9009
 Authors@R: 
     person("Ben", "Backes", , "bbackes@air.org", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-3485-1586"))
