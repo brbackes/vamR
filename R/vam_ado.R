@@ -122,7 +122,7 @@ vam <- function(
     cli::cli_abort("You must provide a dataframe using the data argument.")
   }
   
-  if (is.null(cfr_school) & cfr_test == TRUE) {
+  if ((is.null(cfr_school) | is.null(cfr_grade) | is.null(cfr_subject)) & (cfr_test == TRUE | return_cfr_test_only == TRUE)) {
     cli::cli_abort("You must provide school, grade, and subject variable names to run CFR test")
   }
   
