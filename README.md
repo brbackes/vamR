@@ -8,6 +8,14 @@ can install from [GitHub](https://github.com/brbackes/vamR/) with:
 if (!require("pak")) install.packages("pak")
 pak::pak("brbackes/vamR")
 ```
+
+If you are on a corporate Windows environment where proxy issues prevent you from using `pak`, you can also try:
+
+``` r
+if (!require("remotes")) install.packages("remotes")
+remotes::install_github("brbackes/vamR", method = "wininet")
+```
+
 ### Usage (short)
 
 Example usage:
