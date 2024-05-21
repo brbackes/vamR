@@ -70,12 +70,16 @@
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">require</a></span><span class="op">(</span><span class="st"><a href="https://pak.r-lib.org/" class="external-link">"pak"</a></span><span class="op">)</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"pak"</span><span class="op">)</span></span>
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"brbackes/vamR"</span><span class="op">)</span></span></code></pre></div>
+<p>If you are on a corporate Windows environment where proxy issues prevent you from using <code>pak</code>, you can also try:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">require</a></span><span class="op">(</span><span class="st"><a href="https://remotes.r-lib.org" class="external-link">"remotes"</a></span><span class="op">)</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"remotes"</span><span class="op">)</span></span>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"brbackes/vamR"</span>, method <span class="op">=</span> <span class="st">"wininet"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="usage-short">Usage (short)<a class="anchor" aria-label="anchor" href="#usage-short"></a>
 </h3>
 <p>Example usage:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">returned</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/vam.html">vam</a></span><span class="op">(</span></span>
 <span>  by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lvl"</span>, <span class="st">"subject"</span><span class="op">)</span>, </span>
 <span>  data <span class="op">=</span> <span class="va">df_prepped</span>, </span>
@@ -112,7 +116,7 @@
 </h3>
 <p>The trick to replicating Stata’s <code>vam.ado</code> output is making sure the residualization regression in R’s <code>fixest</code> gives the exact same output as Stata’s <code>areg</code> (ignoring the constant term which is not displayed in <code>fixest</code> when there are fixed effects). This sounds obvious, but if you have a complicated set of covariates and interactions, it is not always trivial. Here is an example workflow that has worked for me. Note that saving a .csv from Stata and using <code>fread</code> to read in the dataset is much faster than reading the .dta file into R with <code>haven</code>. Of course, this is only relevant if you have used Stata to clean and prepare the data, or want to compare output from <code>vam.ado</code> and <code>vamR</code>.</p>
 <p>Preparing the set of covariates:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"1_data/output/vam_merge_for_va.csv"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># prepare covariates: higher-order polynomials and grade*year interaction</span></span>
@@ -174,7 +178,7 @@
 <span>  <span class="op">)</span> <span class="op">%&gt;%</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/stats/delete.response.html" class="external-link">reformulate</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p>Below is how to to verify the output from <code>fixest</code> (this is what <code>vamR</code> uses under the hood). In the below, <code>split</code> needs to be included if you’re going to include something in the <code><a href="https://rdrr.io/r/base/by.html" class="external-link">by()</a></code> portion of <code>vam</code>.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">fixest</span><span class="fu">::</span><span class="fu"><a href="https://lrberge.github.io/fixest/reference/feols.html" class="external-link">feols</a></span><span class="op">(</span><span class="va">outcome</span> <span class="op">~</span> <span class="va">.</span><span class="op">[</span><span class="va">reg_controls</span><span class="op">]</span> <span class="op">|</span> <span class="va">teacher_id</span>, data <span class="op">=</span> <span class="va">df_prepped</span>, split <span class="op">=</span> <span class="op">~</span><span class="va">.group_id</span><span class="op">)</span></span></code></pre></div>
 <p>The output (i.e., coefficients and number of observations) in each group should be identical to Stata’s <code>areg</code> absorbing the teacher ID with the same controls and interaction terms. <strong>If this is not the case then the output of <code>vam.ado</code> and <code>vamR</code> will differ.</strong></p>
 <p>To make sure output is identical, I’ve found it helpful to manually specify the omitted group as in above (e.g., <code>i(syear, ref = 2018)</code>). Otherwise, <code>fixest</code> can do strange things with omitted groups and interaction terms. You can check the omitted group used by <code>areg</code> by running the regression in <code>areg</code> or just assuming it’ll omit the first group.</p>
