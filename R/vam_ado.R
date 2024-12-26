@@ -350,8 +350,8 @@ vam <- function(
     
     # cov for each possible lag
     purrr::map_df(1:lags_limit, function(d) {
-      group[, lead_class_mean := fixest::l(class_mean, lag = d)]
-      group[, lead_n_tested := fixest::l(n_tested, lag = d)]
+      group[, lead_class_mean := fixest::l(class_mean, k = d)]
+      group[, lead_n_tested := fixest::l(n_tested, k = d)]
       group[, weight := n_tested + lead_n_tested]
       group <- na.omit(group, cols=c("lead_class_mean", "class_mean", "weight"))
       fixest::unpanel(group)
@@ -498,9 +498,9 @@ vam <- function(
     # 
     # make panel and run regression
     p <- fixest::panel((data.table(cfr_data)), ~pid+.year)
-    p[, tot_obs := num + fixest::l(num, lag = 1)]
-    p[, diff := tv_l - fixest::l(tv_f, lag = 1)]
-    p[, d_mean_score := score - fixest::l(score, lag = 1)]
+    p[, tot_obs := num + fixest::l(num, k = 1)]
+    p[, diff := tv_l - fixest::l(tv_f, k = 1)]
+    p[, d_mean_score := score - fixest::l(score, k = 1)]
     model1 <- fixest::feols(d_mean_score ~ diff | .year, data = p, weights = p$tot_obs, cluster = ~sch_cohort)
     cfr <- tibble::tibble(
       quasi_b = model1$coefficients[1] |> as.numeric(),

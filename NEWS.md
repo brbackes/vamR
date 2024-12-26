@@ -1,3 +1,7 @@
+# vamR 0.0.0.9010
+
+* Fixed breaking change from `fixest` (thanks to @jecowan). Now requirest `fixest` >= 0.12.1
+
 # vamR 0.0.0.9009
 
 * Fixed error caused when driftlimit was not specified
