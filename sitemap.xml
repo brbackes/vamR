@@ -1,27 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://brbackes.github.io/vamR/404.html</loc>
-  </url>
-  <url>
-    <loc>https://brbackes.github.io/vamR/LICENSE-text.html</loc>
-  </url>
-  <url>
-    <loc>https://brbackes.github.io/vamR/LICENSE.html</loc>
-  </url>
-  <url>
-    <loc>https://brbackes.github.io/vamR/authors.html</loc>
-  </url>
-  <url>
-    <loc>https://brbackes.github.io/vamR/index.html</loc>
-  </url>
-  <url>
-    <loc>https://brbackes.github.io/vamR/news/index.html</loc>
-  </url>
-  <url>
-    <loc>https://brbackes.github.io/vamR/reference/index.html</loc>
-  </url>
-  <url>
-    <loc>https://brbackes.github.io/vamR/reference/vam.html</loc>
-  </url>
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>https://brbackes.github.io/vamR/404.html</loc></url>
+<url><loc>https://brbackes.github.io/vamR/LICENSE-text.html</loc></url>
+<url><loc>https://brbackes.github.io/vamR/LICENSE.html</loc></url>
+<url><loc>https://brbackes.github.io/vamR/authors.html</loc></url>
+<url><loc>https://brbackes.github.io/vamR/index.html</loc></url>
+<url><loc>https://brbackes.github.io/vamR/news/index.html</loc></url>
+<url><loc>https://brbackes.github.io/vamR/reference/index.html</loc></url>
+<url><loc>https://brbackes.github.io/vamR/reference/vam.html</loc></url>
 </urlset>
+
