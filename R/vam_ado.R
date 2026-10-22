@@ -32,10 +32,14 @@
 #' @param cfr_weight Optional if `cfr_test` is TRUE. Name of the teacher weight variable used in the collapse for `cfr_test` (typically a 
 #' teacher dosage variable greater than 0 and no greater than 1). Not used in the value-added calculations.
 #' @param return_df_only Default FALSE. If TRUE, return only the original dataframe with value-added and residuals appended. If FALSE,
-#' return a list of (a) the original df with value-added and residuals, (b) the variance estimates, (c) the autocovariances by lag, and
-#' (d) a teacher-year-(by) dataset with the value-added estimates. Note that (d) will include teacher estimates for years in which they were
-#' not originally present in the data: this is a difference from the Stata version. To restrict to years in which a teacher was in the data,
-#' use (a) which is the original data with the value-added estimates appended.
+#' return a named list with `Parameters` (the variance estimates), `Covariances` (the autocovariances by lag), `Value_Added` (a
+#' teacher-year-(by) dataset with the value-added estimates), `CFR_Test` (if `cfr_test` is TRUE), `Specification` (the arguments used,
+#' with `driftlimit` filled in if it was not specified), and, if `return_data` is TRUE, `Data` (the original data with value-added and
+#' residuals appended). Note that `Value_Added` will include teacher estimates for years in which they were not originally present in the
+#' data: this is a difference from the Stata version. To restrict to years in which a teacher was in the data, use `Data`.
+#' @param return_data Default TRUE. If TRUE, the returned list includes `Data`, the original data with value-added and residuals appended.
+#' This is usually most of the size of the result, so set it to FALSE when estimating many models. Cannot be specified together with
+#' `return_df_only` or `return_cfr_test_only`.
 #' @param return_cfr_test_only Default FALSE. If TRUE, return only the coefficient and standard error of the `cfr_test` result. Useful for checking
 #' the bias of many different specifications without having to hold each resulting set of `tv` estimates in memory.
 #' @param show_regressions Default FALSE. If TRUE, shows fixest's notes from the regressions (e.g., observations removed for missing
@@ -87,6 +91,7 @@ vam <- function(
     cfr_weight = NULL,
     return_df_only = FALSE,
     return_cfr_test_only = FALSE,
+    return_data = TRUE,
     show_regressions = FALSE
 ) {
 
@@ -111,6 +116,10 @@ vam <- function(
 
   if (return_df_only && return_cfr_test_only) {
     cli::cli_abort("You asked to only return the the joined data and also to only return the CFR test results. Please pick one or the other or leave all the return only's blank.")
+  }
+  
+  if (!missing(return_data) && (return_df_only || return_cfr_test_only)) {
+    cli::cli_abort("return_data cannot be combined with return_df_only or return_cfr_test_only. return_df_only already returns only the data, and return_cfr_test_only returns only the CFR test results.")
   }
 
   if (tv_name %in% names(data)) {
@@ -343,11 +352,14 @@ vam <- function(
 
   cli::cli_progress_step("Merging tv estimates back to original data.")
 
-  reg_df[
-    va,
-    on = stats::setNames(c(".group", ".teacher", ".year"), c(".group", teacher, year)),
-    (new_tv_cols) := mget(paste0("i.", new_tv_cols))
-  ]
+  # the merged data is only needed if it is returned or used for the CFR test
+  if (return_data || return_df_only || want_cfr) {
+    reg_df[
+      va,
+      on = stats::setNames(c(".group", ".teacher", ".year"), c(".group", teacher, year)),
+      (new_tv_cols) := mget(paste0("i.", new_tv_cols))
+    ]
+  }
   reg_df[, .group := NULL]
   setnames(reg_df, ".score_r", scores_name)
 
@@ -412,6 +424,7 @@ vam <- function(
   pars <- groups[pars, on = ".group"]
   lags <- groups[lags, on = ".group"]
 
+  cli::cli_progress_done()
   cli::cli_alert_info("Standard deviations: total, classes, students, teachers same year")
   for (g in seq_len(n_groups)) {
     print(tibble::as_tibble(pars[.group == g, c(by, "sd_total", "sd_class", "sd_ind", "sd_tch_yr"), with = FALSE]))
@@ -424,25 +437,38 @@ vam <- function(
     return(cfr)
   }
 
-  data_out <- tibble::as_tibble(reg_df)
-
   if (return_df_only) {
     tictoc::toc()
     cli::cli_progress_step("Done.")
-    return(data_out)
+    return(tibble::as_tibble(reg_df))
   }
 
   setnames(va, c(".teacher", ".year"), c(teacher, year))
 
   return_list <- list(
-    "Data" = data_out,                                                        # original data with scores added on
     "Parameters" = tibble::as_tibble(pars[, !c(".group", "v", "class_v")]),   # variance parameters and stuff
     "Covariances" = tibble::as_tibble(lags[, !".group"]),                     # lag stuff
     "Value_Added" = tibble::as_tibble(groups[va, on = ".group"][, !".group"]) # tch-yr dataset
   )
+  if (return_data) {
+    return_list <- c(list("Data" = tibble::as_tibble(reg_df)), return_list)   # original data with scores added on
+  }
   if (cfr_test) {
     return_list$CFR_Test <- cfr                                               # cfr test coef and se
   }
+  return_list$Specification <- list(                                          # arguments used
+    y = y,
+    teacher = teacher,
+    year = year,
+    class = class,
+    controls = controls,
+    by = by,
+    tfx_resid = tfx_resid,
+    absorb = absorb,
+    driftlimit = driftlimit,
+    quasi = quasi,
+    cfr_test = cfr_test
+  )
 
   cli::cli_progress_step("Done.")
   tictoc::toc()
