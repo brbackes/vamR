@@ -38,6 +38,8 @@
 #' use (a) which is the original data with the value-added estimates appended.
 #' @param return_cfr_test_only Default FALSE. If TRUE, return only the coefficient and standard error of the `cfr_test` result. Useful for checking
 #' the bias of many different specifications without having to hold each resulting set of `tv` estimates in memory.
+#' @param show_regressions Default TRUE. If TRUE, shows fixest's notes from the regressions (e.g., observations removed for missing
+#' values) and prints a `fixest::etable()` of the residualization regression for each by-group. If FALSE, both are hidden.
 #'
 #' @return A dataframe or list depending on `return_df_only` and `return_cfr_test_only`.
 #' @export
@@ -84,7 +86,8 @@ vam <- function(
     cfr_subject = NULL,
     cfr_weight = NULL,
     return_df_only = FALSE,
-    return_cfr_test_only = FALSE
+    return_cfr_test_only = FALSE,
+    show_regressions = TRUE
 ) {
 
   tictoc::tic("vam")
@@ -165,6 +168,7 @@ vam <- function(
   fml_vars <- intersect(all.vars(fml), names(reg_df))
 
   reg_df[, .score_r := NA_real_]
+  models <- if (show_regressions) vector("list", n_groups)
   pars <- data.table(.group = seq_len(n_groups), npar = NA_integer_, nobs = NA_integer_)
 
   for (g in seq_len(n_groups)) {
@@ -172,10 +176,10 @@ vam <- function(
     group_df <- reg_df[idx, fml_vars, with = FALSE]
 
     if (is.null(fe)) {
-      model <- fixest::feols(fml, data = group_df)
+      model <- fixest::feols(fml, data = group_df, notes = show_regressions)
     } else {
       # keep singleton / perfect-fit fixed effects, as Stata does
-      model <- fixest::feols(fml, data = group_df, fixef.rm = "none")
+      model <- fixest::feols(fml, data = group_df, fixef.rm = "none", notes = show_regressions)
     }
     score_r <- resid(model, type = "response", na.rm = FALSE)
 
@@ -193,8 +197,15 @@ vam <- function(
     # absorbed FE count toward the degrees-of-freedom correction; teacher FE do not
     set(pars, i = g, j = "npar", value = as.integer(if (is.null(absorb)) length(model$coefficients) else model$nparams))
     set(pars, i = g, j = "nobs", value = as.integer(model$nobs))
+    if (show_regressions) models[[g]] <- model
   }
   rm(model, group_df)
+  
+  if (show_regressions) {
+    labels <- if (is.null(by)) "All" else do.call(paste, c(as.list(groups[, by, with = FALSE]), sep = " / "))
+    print(fixest::etable(models, headers = labels))
+    rm(models)
+  }
 
   #########################################
   # calculate total and individual variances
@@ -386,7 +397,8 @@ vam <- function(
     )]
 
     model_cfr <- fixest::feols(
-      d_mean_score ~ diff | .year, data = cfr_data, weights = ~tot_obs, cluster = ~sch_cohort, fixef.rm = "none"
+      d_mean_score ~ diff | .year, data = cfr_data, weights = ~tot_obs, cluster = ~sch_cohort, fixef.rm = "none",
+      notes = show_regressions
     )
     cfr <- tibble::tibble(
       quasi_b = as.numeric(model_cfr$coefficients[1]),
