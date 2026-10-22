@@ -157,37 +157,44 @@ vam <- function(
     cli::cli_progress_step("Residualizing with no fixed effects.")
   }
 
+  # one regression per group on just that group's rows and model variables.
+  # faster than feols(split = ), which builds the model matrix for the full
+  # data and then copies each group's rows out of it
   fe <- c(tfx_resid, absorb)
-  if (is.null(fe)) {
-    model <- fixest::feols(.[y] ~ .[controls], data = reg_df, split = ~.group)
-  } else {
-    # keep singleton / perfect-fit fixed effects, as Stata does
-    model <- fixest::feols(.[y] ~ .[controls] | .[fe], data = reg_df, split = ~.group, fixef.rm = "none")
+  fml <- if (is.null(fe)) fixest::xpd(.[y] ~ .[controls]) else fixest::xpd(.[y] ~ .[controls] | .[fe])
+  fml_vars <- intersect(all.vars(fml), names(reg_df))
+
+  reg_df[, .score_r := NA_real_]
+  pars <- data.table(.group = seq_len(n_groups), npar = NA_integer_, nobs = NA_integer_)
+
+  for (g in seq_len(n_groups)) {
+    idx <- which(reg_df$.group == g)
+    group_df <- reg_df[idx, fml_vars, with = FALSE]
+
+    if (is.null(fe)) {
+      model <- fixest::feols(fml, data = group_df)
+    } else {
+      # keep singleton / perfect-fit fixed effects, as Stata does
+      model <- fixest::feols(fml, data = group_df, fixef.rm = "none")
+    }
+    score_r <- resid(model, type = "response", na.rm = FALSE)
+
+    # add the teacher FE back into the residual, centered within group.
+    # match on unique teachers so as.character() runs once per teacher, not per row
+    if (!is.null(tfx_resid)) {
+      fe_coef <- fixest::fixef(model)[[tfx_resid]]
+      tch <- group_df[[tfx_resid]]
+      tch_ids <- unique(tch)
+      tfe <- unname(fe_coef[match(as.character(tch_ids), names(fe_coef))])[match(tch, tch_ids)]
+      score_r <- score_r + tfe - mean(tfe, na.rm = TRUE)
+    }
+    set(reg_df, i = idx, j = ".score_r", value = score_r)
+
+    # absorbed FE count toward the degrees-of-freedom correction; teacher FE do not
+    set(pars, i = g, j = "npar", value = as.integer(if (is.null(absorb)) length(model$coefficients) else model$nparams))
+    set(pars, i = g, j = "nobs", value = as.integer(model$nobs))
   }
-
-  # one column of residuals per group, NA outside it: take each row's own group
-  resids <- as.matrix(resid(model, type = "response", na.rm = FALSE))
-  reg_df[, .score_r := resids[cbind(seq_len(.N), .group)]]
-  rm(resids)
-
-  # add the teacher FE back into the residual, centered within group
-  if (!is.null(tfx_resid)) {
-    reg_df[, .score_r := {
-      fe_coef <- fixest::fixef(model[[.BY$.group]])[[tfx_resid]]
-      tfe <- fe_coef[match(as.character(tch), names(fe_coef))]
-      .score_r + tfe - mean(tfe, na.rm = TRUE)
-    }, by = .group, env = list(tch = tfx_resid)]
-  }
-
-  # absorbed FE count toward the degrees-of-freedom correction; teacher FE do not
-  pars <- data.table(
-    .group = seq_len(n_groups),
-    npar = vapply(seq_len(n_groups), function(g) {
-      as.integer(if (is.null(absorb)) length(model[[g]]$coefficients) else model[[g]]$nparams)
-    }, integer(1)),
-    nobs = vapply(seq_len(n_groups), function(g) as.integer(model[[g]]$nobs), integer(1))
-  )
-  rm(model)
+  rm(model, group_df)
 
   #########################################
   # calculate total and individual variances
