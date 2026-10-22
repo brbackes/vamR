@@ -1,60 +1,38 @@
 
 is_installed <- function(pkg) requireNamespace(pkg, quietly = TRUE)
 
-# a function
-vectorToStripeDiag <- function(vector_m) {
-  
-  dim = length(vector_m)
-  M = matrix(0, dim, dim)
-  for (i in 1:dim) {
-    for (j in 1:dim) {
-      M[j,i]=vector_m[abs(j-i)+1]
-    }
-  }
-  
-  return(M)
-  
-} 
+# leave-out value added for one by-group
+#
+# tch_yr: teacher-year data for one group, keyed by .teacher and .year, with
+#   class_mean, weight, and n_tested
+# M: autocovariance matrix (lag 0 to data span) for the group
+# quasi: also compute the two-year leave-outs
+#
+# returns one row per teacher x year (any year in the group's data) for which
+# the teacher has a scored year other than that year
+compute_tv <- function(tch_yr, M, quasi = FALSE) {
 
-# compute tv function
-compute_tv_matrix <- function(teacher_data, M, type = "base") {
-  
-  year_index <- min(teacher_data$get.1) - 1
-  
-  mm <- tidyr::crossing(
-    teacher_data |> dplyr::select(get.1) |> dplyr::distinct(),
-    teacher_data |> dplyr::rename(syear = get.1)
-  ) |>
-    dplyr::filter(!is.na(class_mean), get.1 != syear) |>
-    dplyr::select(-n_tested) |>
-    dplyr::mutate(
-      years = syear - year_index,
-      year_i = get.1 - year_index
-    )
-  
-  if (type == "f") {
-    mm <- mm |> dplyr::filter(get.1 + 1 != syear) # leave next year out
-  }
-  if (type == "l") {
-    mm <- mm |> dplyr::filter(get.1 - 1 != syear) # leave prior year out
-  }
-  
-  mm <- mm |>
-    tidyr::nest(
-      .by = c(get, get.1, .group)
-    )
-  
-  suppressMessages(
-    n <- dplyr::bind_cols(
-      cpp_tv(mm$data, M),
-      mm
-    ) |>
-      dplyr::select(1:3) |>
-      rlang::set_names("tv", "get", "get.1") |>
-      dplyr::select(get, get.1, tv)
+  years <- sort(unique(tch_yr$.year))
+  year_index <- min(years) - 1
+
+  res <- cpp_tv(
+    tid = rleid(tch_yr$.teacher),
+    yr = as.integer(tch_yr$.year - year_index),
+    score = as.numeric(tch_yr$class_mean),
+    weight = as.numeric(tch_yr$weight),
+    targets = as.integer(years - year_index),
+    M = M,
+    quasi = quasi
   )
 
-  
-  n
-  
+  out <- data.table(
+    .teacher = tch_yr$.teacher[res$row],
+    .year = years[res$target],
+    tv = res$tv
+  )
+  if (quasi) {
+    out[, `:=`(tv_2yr_f = res$tv_f, tv_2yr_l = res$tv_l)]
+  }
+
+  out
 }
