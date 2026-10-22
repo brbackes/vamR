@@ -25,7 +25,7 @@ vam(
   cfr_weight = NULL,
   return_df_only = FALSE,
   return_cfr_test_only = FALSE,
-  show_regressions = TRUE
+  show_regressions = FALSE
 )
 }
 \arguments{
@@ -85,7 +85,7 @@ use (a) which is the original data with the value-added estimates appended.}
 the bias of many different specifications without having to hold each resulting set of \code{tv} estimates in memory.}
 }
 
-\item{show_regressions}{Default TRUE. If TRUE, shows fixest's notes from the regressions (e.g., observations removed for missing
+\item{show_regressions}{Default FALSE. If TRUE, shows fixest's notes from the regressions (e.g., observations removed for missing
 values) and prints a \code{fixest::etable()} of the residualization regression for each by-group. If FALSE, both are hidden.}
 \value{
 A dataframe or list depending on \code{return_df_only} and \code{return_cfr_test_only}.

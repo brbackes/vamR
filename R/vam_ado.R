@@ -38,7 +38,7 @@
 #' use (a) which is the original data with the value-added estimates appended.
 #' @param return_cfr_test_only Default FALSE. If TRUE, return only the coefficient and standard error of the `cfr_test` result. Useful for checking
 #' the bias of many different specifications without having to hold each resulting set of `tv` estimates in memory.
-#' @param show_regressions Default TRUE. If TRUE, shows fixest's notes from the regressions (e.g., observations removed for missing
+#' @param show_regressions Default FALSE. If TRUE, shows fixest's notes from the regressions (e.g., observations removed for missing
 #' values) and prints a `fixest::etable()` of the residualization regression for each by-group. If FALSE, both are hidden.
 #'
 #' @return A dataframe or list depending on `return_df_only` and `return_cfr_test_only`.
@@ -87,7 +87,7 @@ vam <- function(
     cfr_weight = NULL,
     return_df_only = FALSE,
     return_cfr_test_only = FALSE,
-    show_regressions = TRUE
+    show_regressions = FALSE
 ) {
 
   tictoc::tic("vam")
