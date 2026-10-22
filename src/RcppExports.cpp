@@ -12,20 +12,25 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // cpp_tv
-arma::vec cpp_tv(List L, arma::mat M);
-RcppExport SEXP _vamR_cpp_tv(SEXP LSEXP, SEXP MSEXP) {
+List cpp_tv(IntegerVector tid, IntegerVector yr, NumericVector score, NumericVector weight, IntegerVector targets, arma::mat M, bool quasi);
+RcppExport SEXP _vamR_cpp_tv(SEXP tidSEXP, SEXP yrSEXP, SEXP scoreSEXP, SEXP weightSEXP, SEXP targetsSEXP, SEXP MSEXP, SEXP quasiSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type L(LSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type tid(tidSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type yr(yrSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type score(scoreSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type weight(weightSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type targets(targetsSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type M(MSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_tv(L, M));
+    Rcpp::traits::input_parameter< bool >::type quasi(quasiSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_tv(tid, yr, score, weight, targets, M, quasi));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_vamR_cpp_tv", (DL_FUNC) &_vamR_cpp_tv, 2},
+    {"_vamR_cpp_tv", (DL_FUNC) &_vamR_cpp_tv, 7},
     {NULL, NULL, 0}
 };
 

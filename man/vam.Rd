@@ -24,7 +24,9 @@ vam(
   cfr_subject = NULL,
   cfr_weight = NULL,
   return_df_only = FALSE,
-  return_cfr_test_only = FALSE
+  return_cfr_test_only = FALSE,
+  return_data = TRUE,
+  show_regressions = FALSE
 )
 }
 \arguments{
@@ -75,14 +77,22 @@ calculations.}
 teacher dosage variable greater than 0 and no greater than 1). Not used in the value-added calculations.}
 
 \item{return_df_only}{Default FALSE. If TRUE, return only the original dataframe with value-added and residuals appended. If FALSE,
-return a list of (a) the original df with value-added and residuals, (b) the variance estimates, (c) the autocovariances by lag, and
-(d) a teacher-year-(by) dataset with the value-added estimates. Note that (d) will include teacher estimates for years in which they were
-not originally present in the data: this is a difference from the Stata version. To restrict to years in which a teacher was in the data,
-use (a) which is the original data with the value-added estimates appended.}
+return a named list with \code{Parameters} (the variance estimates), \code{Covariances} (the autocovariances by lag), \code{Value_Added} (a
+teacher-year-(by) dataset with the value-added estimates), \code{CFR_Test} (if \code{cfr_test} is TRUE), \code{Specification} (the arguments used,
+with \code{driftlimit} filled in if it was not specified), and, if \code{return_data} is TRUE, \code{Data} (the original data with value-added and
+residuals appended). Note that \code{Value_Added} will include teacher estimates for years in which they were not originally present in the
+data: this is a difference from the Stata version. To restrict to years in which a teacher was in the data, use \code{Data}.}
+
+\item{return_data}{Default TRUE. If TRUE, the returned list includes \code{Data}, the original data with value-added and residuals appended.
+This is usually most of the size of the result, so set it to FALSE when estimating many models. Cannot be specified together with
+\code{return_df_only} or \code{return_cfr_test_only}.}
 
 \item{return_cfr_test_only}{Default FALSE. If TRUE, return only the coefficient and standard error of the \code{cfr_test} result. Useful for checking
 the bias of many different specifications without having to hold each resulting set of \code{tv} estimates in memory.}
 }
+
+\item{show_regressions}{Default FALSE. If TRUE, shows fixest's notes from the regressions (e.g., observations removed for missing
+values) and prints a \code{fixest::etable()} of the residualization regression for each by-group. If FALSE, both are hidden.}
 \value{
 A dataframe or list depending on \code{return_df_only} and \code{return_cfr_test_only}.
 }

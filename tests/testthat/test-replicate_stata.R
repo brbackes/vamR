@@ -62,7 +62,7 @@ test_that("Identical output generated from vam.ado and vamR", {
     tv <- haven::read_dta("../../../vamR_test_data/tv.dta")
     cfr_stata <- data.table::fread("../../../vamR_test_data/cfr.csv") |> tibble::as_tibble() |> dplyr::select(1:3)
   
-  tvr <- ret[[1]] |>
+  tvr <- ret[["Data"]] |>
     dplyr::mutate(subject = ifelse(subject == "ELA", 51, 52)) |>
     dplyr::select(lvl, subject, mepid, syear, tv_R, tv_R_2yr_f, tv_R_2yr_l) |>
     dplyr::group_by(lvl, subject, mepid, syear) |>
@@ -140,7 +140,7 @@ test_that("Identical output generated from vam.ado and vamR", {
   expect_gt(min(cors$tch_yr_obs), 25000)
   
   # quasi-experimental test
-  cfr_r <- ret[[5]]
+  cfr_r <- ret[["CFR_Test"]]
   expect_equal(cfr_r$quasi_b, cfr_stata$b, tolerance = 0.0001)
   
 })

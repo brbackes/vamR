@@ -1,3 +1,13 @@
+# vamR 0.0.0.9011
+
+* Speed and memory improvements: the residualization, variance, and collapse steps run in `data.table` without repeated per-group copies of the full data, and all three leave-out VA measures are computed in a single C++ pass instead of building nested tibbles.
+* Residualization runs one `feols` per by-group on that group's rows instead of `feols(split = )`, which spent much of its time copying each group's rows out of a full-data model matrix.
+* New `show_regressions` argument (default FALSE). If TRUE, shows fixest's notes and prints a `fixest::etable()` of each by-group's residualization regression.
+* New `return_data` argument (default TRUE). Set it to FALSE to leave `Data` out of the returned list, which keeps results small when estimating many models.
+* The returned list includes `Specification`, recording the arguments used (with `driftlimit` filled in if it was not specified).
+* Residualization regressions (and the CFR test regression) now use `fixef.rm = "none"` so that singleton / perfect-fit fixed effects are kept, as in Stata.
+* `dplyr`, `purrr`, and `tidyr` are no longer dependencies. Now requires `data.table` >= 1.15.0.
+
 # vamR 0.0.0.9010
 
 * Fixed breaking change from `fixest` (thanks to @jecowan). Now requirest `fixest` >= 0.12.1
