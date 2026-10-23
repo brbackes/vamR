@@ -183,8 +183,11 @@ group.
 ### Why is it faster?
 
 For anyone curious, a look under the hood at why things are faster in
-`fixest` than `vam.ado`. Annecdotally, I’ve found `vamR` to be 5-10
-times faster than `vam.ado`, with larger speed gains coming when more
+`fixest` than `vam.ado`. On the package’s test data (about 7.4 million
+student-year rows, VA estimated separately by level and subject with
+teacher fixed effects, leave-two-out estimates, and the CFR test),
+`vamR` takes about 1.5 minutes versus about 19 minutes for `vam.ado`,
+roughly 12 times faster. Speed gains tend to be larger when more
 [`by()`](https://rdrr.io/r/base/by.html) groups are included and the
 residualization regression is more complicated, especially with
 interaction terms. Before getting into it, note that `vam.ado` was

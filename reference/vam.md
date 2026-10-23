@@ -189,7 +189,7 @@ returned <- vam(
 })
 #> ── VAM estimation ─────────────────────────────────── vamR version 0.0.0.9011 ──
 #> ℹ Initial function checks.
-#> ✖ Initial function checks. [10ms]
+#> ✖ Initial function checks. [9ms]
 #> 
 #> Error in eval(expr, envir) : object 'df_prepped' not found
 # }
